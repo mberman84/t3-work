@@ -36,9 +36,25 @@ export const resolveUserDataPath = Effect.fn("desktop.userData.resolveUserDataPa
     readonly appDataDirectory: string;
     readonly isDevelopment: boolean;
     readonly platform: NodeJS.Platform;
+    readonly stateDir?: string;
   }) {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
+    if (input.stateDir !== undefined) {
+      const destination = path.join(input.stateDir, "electron");
+      yield* fs
+        .makeDirectory(destination, { recursive: true })
+        .pipe(
+          Effect.mapError((cause) =>
+            DesktopUserDataInitializationError.fromFileSystem(
+              cause,
+              "create-directory",
+              destination,
+            ),
+          ),
+        );
+      return destination;
+    }
     const names = input.isDevelopment
       ? { current: "t3code-dev", legacy: "T3 Code (Dev)" }
       : { current: "t3code-v2", legacy: "T3 Code (Alpha)" };

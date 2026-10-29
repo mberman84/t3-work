@@ -6,6 +6,30 @@ import * as Path from "effect/Path";
 
 import { resolveUserDataPath } from "./DesktopUserData.ts";
 
+it.effect("creates a separate Electron profile inside each fork's state directory", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const directory = yield* fs.makeTempDirectoryScoped({ prefix: "t3-work-profile-" });
+    const upstream = path.join(directory, "t3code-v2");
+    yield* fs.makeDirectory(upstream, { recursive: true });
+    yield* fs.writeFileString(path.join(upstream, "Local State"), "original-profile");
+    for (const name of ["first-fork", "second-fork"]) {
+      const stateDir = path.join(directory, name, "userdata");
+      const actual = yield* resolveUserDataPath({
+        appDataDirectory: directory,
+        isDevelopment: false,
+        platform: "win32",
+        stateDir,
+      });
+      assert.equal(actual, path.join(stateDir, "electron"));
+      assert.isTrue(yield* fs.exists(actual));
+      assert.isFalse(yield* fs.exists(path.join(actual, "Local State")));
+    }
+    assert.equal(yield* fs.readFileString(path.join(upstream, "Local State")), "original-profile");
+  }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+);
+
 it.effect.each(["t3code", "T3 Code (Alpha)"])(
   "preserves Windows credential keys from %s without copying browser databases",
   (sourceName) =>
