@@ -28,6 +28,26 @@ const encodeServerSettings = Schema.encodeSync(ServerSettings);
 const encodeServerSettingsPatch = Schema.encodeSync(ServerSettingsPatch);
 const decodeClaudeSettings = Schema.decodeUnknownSync(ClaudeSettings);
 
+describe("developer tools preference", () => {
+  it("defaults existing settings to off and preserves an explicit choice across saves", () => {
+    expect(decodeClientSettings({}).developerToolsEnabled).toBe(false);
+    const enabled = decodeClientSettings({ developerToolsEnabled: true });
+    expect(decodeClientSettings(encodeClientSettings(enabled)).developerToolsEnabled).toBe(true);
+    const patch = decodeClientSettingsPatch({ developerToolsEnabled: false });
+    expect(
+      decodeClientSettings(encodeClientSettings({ ...enabled, ...patch })).developerToolsEnabled,
+    ).toBe(false);
+  });
+});
+
+describe("browser link preference", () => {
+  it("opens links in the app by default and preserves an explicit external-browser choice", () => {
+    expect(decodeClientSettings({}).browserLinkTarget).toBe("app");
+    const settings = decodeClientSettings({ browserLinkTarget: "system" });
+    expect(decodeClientSettings(encodeClientSettings(settings)).browserLinkTarget).toBe("system");
+  });
+});
+
 describe("storage cleanup settings", () => {
   it("keeps cleanup disabled for existing installations", () => {
     expect(decodeServerSettings({}).worktreeCleanup).toBeNull();

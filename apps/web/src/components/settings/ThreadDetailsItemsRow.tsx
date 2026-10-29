@@ -1,3 +1,4 @@
+import { useDeveloperToolsEnabled } from "~/hooks/useDeveloperTools";
 import { ChevronDownIcon } from "lucide-react";
 
 import { updateClientSettings, useClientSettings } from "../../hooks/useSettings";
@@ -14,8 +15,13 @@ import { SettingResetButton, SettingsRow } from "./settingsLayout";
 import { searchableSetting } from "./settingsSearch";
 
 export function ThreadDetailsItemsRow() {
+  const developerTools = useDeveloperToolsEnabled();
+  const visibleItems = THREAD_DETAILS_ITEMS.filter(
+    (item) =>
+      developerTools || ["environment", "automations", "lineage", "usage"].includes(item.id),
+  );
   const visibility = useClientSettings(resolveThreadDetailsVisibility);
-  const enabled = THREAD_DETAILS_ITEMS.filter((item) => visibility[item.id]).length;
+  const enabled = visibleItems.filter((item) => visibility[item.id]).length;
   return (
     <SettingsRow
       {...searchableSetting("thread-details-items")}
@@ -36,11 +42,11 @@ export function ThreadDetailsItemsRow() {
                 variant="outline"
                 size="sm"
                 className="w-full justify-between sm:w-40"
-                aria-label={`Thread details: ${enabled} of ${THREAD_DETAILS_ITEMS.length} on`}
+                aria-label={`Thread details: ${enabled} of ${visibleItems.length} on`}
               />
             }
           >
-            {enabled} of {THREAD_DETAILS_ITEMS.length} on
+            {enabled} of {visibleItems.length} on
             <ChevronDownIcon aria-hidden />
           </MenuTrigger>
           <MenuPopup align="end">

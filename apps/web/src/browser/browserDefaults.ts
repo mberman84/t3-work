@@ -1,6 +1,6 @@
 import {
-  DEFAULT_BROWSER_PROFILE_ID,
   resolveBrowserProfiles,
+  resolveDefaultBrowserProfileId,
   type BrowserProfile,
   type DesktopPreviewTabDefaults,
   type PreviewAppearancePreference,
@@ -39,11 +39,7 @@ const toBrowserDefaults = (settings: {
     appearance: settings.browserDefaultAppearance,
     autoShowFloatingPreview: settings.browserAutoShowFloatingPreview,
     profiles,
-    profileId:
-      profiles.find(
-        (profile) =>
-          profile.id === settings.browserDefaultProfileId && profile.kind !== "incognito",
-      )?.id ?? DEFAULT_BROWSER_PROFILE_ID,
+    profileId: resolveDefaultBrowserProfileId(profiles, settings.browserDefaultProfileId),
   };
 };
 

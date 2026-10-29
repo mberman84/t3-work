@@ -517,6 +517,7 @@ export type ProjectEnsureScratchResult = typeof ProjectEnsureScratchResult.Type;
 
 export const ProjectCreateNewInput = Schema.Struct({
   name: TrimmedNonEmptyString.check(Schema.isMaxLength(200)),
+  initializeGit: Schema.optionalKey(Schema.Boolean),
 });
 export type ProjectCreateNewInput = typeof ProjectCreateNewInput.Type;
 
@@ -530,6 +531,7 @@ export type ProjectCreateNewResult = typeof ProjectCreateNewResult.Type;
 
 export const ProjectCreateFromThreadInput = Schema.Struct({
   threadId: ThreadId,
+  targetProjectId: Schema.optionalKey(ProjectId),
 });
 export type ProjectCreateFromThreadInput = typeof ProjectCreateFromThreadInput.Type;
 

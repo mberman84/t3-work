@@ -6,6 +6,8 @@ import { describe, expect, it, vi } from "vite-plus/test";
 
 import { act, fakeTimers, render as renderUi } from "../../../test/render";
 import type { RemoteOpenState } from "../../remoteOpen";
+import { DEFAULT_CLIENT_SETTINGS } from "@t3tools/contracts/settings";
+import { __setClientSettingsForTests } from "../../hooks/useSettings";
 
 const state = vi.hoisted(() => ({
   allowed: new Set<string>(),
@@ -85,8 +87,10 @@ async function setup() {
   state.markHintSeen.mockReset();
   state.listeners.clear();
   window.localStorage.clear();
+  __setClientSettingsForTests({ ...DEFAULT_CLIENT_SETTINGS, developerToolsEnabled: true });
 
   await using stack = new AsyncDisposableStack();
+  stack.use({ [Symbol.dispose]: () => __setClientSettingsForTests(DEFAULT_CLIENT_SETTINGS) });
   const _platform = vi.spyOn(navigator, "platform", "get").mockReturnValue("Linux");
   stack.use(_platform);
   const _storage = { [Symbol.dispose]: () => window.localStorage.clear() };

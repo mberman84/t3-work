@@ -1,3 +1,4 @@
+import { useDeveloperToolsEnabled } from "~/hooks/useDeveloperTools";
 import { type RunId } from "@t3tools/contracts";
 import { type MouseEvent, type ReactNode, memo, useLayoutEffect, useRef, useState } from "react";
 import { type TurnDiffFileChange } from "../../types";
@@ -46,8 +47,10 @@ export const ChangedFilesCard = memo(function ChangedFilesCard(props: {
     onOpenTurnDiff,
     onFileContextMenu,
   } = props;
+  const developerTools = useDeveloperToolsEnabled();
   const summaryStat = summarizeTurnDiffStats(files);
   const hasDirectories = files.some((file) => /[/\\]/.test(file.path));
+  if (!developerTools) return null;
 
   return (
     <div

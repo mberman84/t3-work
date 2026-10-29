@@ -1,4 +1,14 @@
-# T3 Code
+# T3Work
+
+A Windows workspace for knowledge work, one-off projects, and your signed-in Chrome browser, forked from T3 Code.
+
+**[Download T3Work](https://github.com/mberman84/t3-work/releases/latest)** · **[Install and connect your computers](docs/user/t3work-setup.md)**
+
+T3Work keeps T3's remote connection model: connect your other computers to one running host to use the same conversations, projects, files, and providers. The Windows installer and updates come from this repository. Local data lives in `~/.t3work`, separate from T3 Code.
+
+The original project's documentation follows. Links to official T3 Code downloads install the upstream app; use the T3Work download above for this fork.
+
+## About the original T3 Code
 
 T3 Code is an "agent harness control surface". It enables control of the agents on your machine with a best-in-class mobile app ([iOS](https://apps.apple.com/us/app/t3-code-remote-claude-more/id6787819824), [Android](https://play.google.com/store/apps/details?id=com.t3tools.t3code)), [web app](https://app.t3.codes) and [Electron-based desktop app](https://t3.codes).
 

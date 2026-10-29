@@ -1,3 +1,4 @@
+import { useDeveloperToolsEnabled } from "~/hooks/useDeveloperTools";
 import { ThreadDetailsControl } from "./chat/ThreadDetailsControl";
 import { useAtomMount, useAtomValue } from "@effect/atom-react";
 import {
@@ -923,7 +924,7 @@ function PublishRepositoryDialog(props: PublishRepositoryDialogProps) {
   );
 }
 
-export default function GitActionsControl({
+function DeveloperGitActionsControl({
   gitCwd,
   activeThreadRef,
   draftId,
@@ -1888,4 +1889,9 @@ export default function GitActionsControl({
       </Dialog>
     </>
   );
+}
+
+export default function GitActionsControl(props: Parameters<typeof DeveloperGitActionsControl>[0]) {
+  const enabled = useDeveloperToolsEnabled();
+  return enabled ? <DeveloperGitActionsControl {...props} /> : null;
 }

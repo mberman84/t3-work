@@ -3,6 +3,8 @@ import type { Atom } from "effect/reactivity";
 import { expect, it, vi } from "vite-plus/test";
 
 import { act, render, stubGlobal } from "../../../test/render";
+import { DEFAULT_CLIENT_SETTINGS } from "@t3tools/contracts/settings";
+import { __setClientSettingsForTests } from "../../hooks/useSettings";
 
 const state = vi.hoisted(() => ({
   projects: [] as never[],
@@ -119,6 +121,7 @@ const pairingUrl = "https://vps.example.com/pair#token=ABC123";
 const pairLink = `t3code://pair?pairingUrl=${encodeURIComponent(pairingUrl)}`;
 
 function setup() {
+  __setClientSettingsForTests(DEFAULT_CLIENT_SETTINGS);
   vi.clearAllMocks();
   state.confirm.mockResolvedValue(true);
   state.localEnvironmentDisabled = false;
@@ -130,6 +133,7 @@ function setup() {
 async function mount(...urls: string[]) {
   let deliver: ((url: string) => void) | undefined;
   await using stack = new AsyncDisposableStack();
+  stack.use({ [Symbol.dispose]: () => __setClientSettingsForTests(DEFAULT_CLIENT_SETTINGS) });
   stack.use(
     stubGlobal("desktopBridge", {
       getClientSettings: async () => null,
@@ -154,23 +158,32 @@ async function mount(...urls: string[]) {
   return stack.move();
 }
 
-it("holds a launch PR link until project discovery settles, then opens the PR view", async () => {
-  setup();
-  await using _coordinator = await mount(pullRequestUrl);
-  expect(state.navigate).not.toHaveBeenCalled();
-  expect(state.openScratchProject).not.toHaveBeenCalled();
+it.each([true, false])(
+  "routes a launch PR link with Developer tools enabled: %s",
+  async (enabled) => {
+    setup();
+    __setClientSettingsForTests({ ...DEFAULT_CLIENT_SETTINGS, developerToolsEnabled: enabled });
+    await using _coordinator = await mount(pullRequestUrl);
+    if (!enabled) {
+      await vi.waitFor(() => expect(state.openScratchProject).toHaveBeenCalledOnce());
+      expect(state.navigate).not.toHaveBeenCalled();
+      return;
+    }
+    expect(state.navigate).not.toHaveBeenCalled();
+    expect(state.openScratchProject).not.toHaveBeenCalled();
 
-  state.projects = [project];
-  const navigated = new Promise<void>((resolve) => {
-    state.navigate.mockImplementationOnce(async () => resolve());
-  });
-  await act(async () => {
-    appAtomRegistry.set(discoverySettled, true);
-    await navigated;
-  });
-  expect(state.navigate).toHaveBeenCalledExactlyOnceWith(pullRequestView);
-  expect(state.openScratchProject).not.toHaveBeenCalled();
-});
+    state.projects = [project];
+    const navigated = new Promise<void>((resolve) => {
+      state.navigate.mockImplementationOnce(async () => resolve());
+    });
+    await act(async () => {
+      appAtomRegistry.set(discoverySettled, true);
+      await navigated;
+    });
+    expect(state.navigate).toHaveBeenCalledExactlyOnceWith(pullRequestView);
+    expect(state.openScratchProject).not.toHaveBeenCalled();
+  },
+);
 
 it("adds the backend from a pairing link after the user confirms its host", async () => {
   setup();

@@ -1,6 +1,8 @@
+// @effect-diagnostics nodeBuiltinImport:off - Assertions compare host-native paths passed to Playwright.
 import * as NodeEvents from "node:events";
+import * as NodePath from "node:path";
 
-import { INCOGNITO_BROWSER_PROFILE_ID } from "@t3tools/contracts";
+import { INCOGNITO_BROWSER_PROFILE_ID, LIVE_CHROME_PROFILE_ID } from "@t3tools/contracts";
 import { chromium, type Browser, type BrowserContext, type BrowserType } from "playwright-core";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
@@ -11,9 +13,11 @@ const launches = vi.hoisted(() => ({
   persistent: vi.fn<BrowserType["launchPersistentContext"]>(),
   mkdir: vi.fn().mockResolvedValue(undefined),
   rm: vi.fn().mockResolvedValue(undefined),
+  connect: vi.fn<BrowserType["connectOverCDP"]>(),
 }));
 vi.spyOn(chromium, "launch").mockImplementation(launches.launch);
 vi.spyOn(chromium, "launchPersistentContext").mockImplementation(launches.persistent);
+vi.spyOn(chromium, "connectOverCDP").mockImplementation(launches.connect);
 vi.mock("node:fs/promises", () => ({ mkdir: launches.mkdir, rm: launches.rm }));
 
 const makeContext = () => {
@@ -21,7 +25,7 @@ const makeContext = () => {
   let closed = false;
   return {
     on: vi.fn((event: string, listener: () => void) => events.on(event, listener)),
-    pages: vi.fn(() => []),
+    pages: vi.fn<BrowserContext["pages"]>(() => []),
     close: vi.fn(async () => {
       if (!closed) {
         closed = true;
@@ -60,9 +64,70 @@ beforeEach(() => {
   launches.persistent.mockReset();
   launches.mkdir.mockClear();
   launches.rm.mockClear();
+  launches.connect.mockReset();
 });
 
 describe("ServerBrowserContexts", () => {
+  it("uses the existing Chrome profile without closing pages, creating contexts, or deleting its data", async () => {
+    const context = makeContext();
+    const existingPage = { close: vi.fn() };
+    context.pages.mockReturnValue([
+      existingPage as unknown as ReturnType<BrowserContext["pages"]>[number],
+    ]);
+    const disconnected = new NodeEvents.EventEmitter();
+    const disconnect = vi.fn(async () => {
+      disconnected.emit("disconnected");
+    });
+    const browser = {
+      contexts: () => [context],
+      close: disconnect,
+      on: (event: string, listener: () => void) => disconnected.on(event, listener),
+    } as unknown as Browser;
+    launches.connect.mockResolvedValue(browser);
+    const pool = new ServerBrowserContexts({
+      ...options(),
+      chromeEndpoint: async () => "ws://127.0.0.1:9222/devtools/browser/test",
+    });
+    const [first, second] = await Promise.all([
+      pool.contextFor(LIVE_CHROME_PROFILE_ID),
+      pool.contextFor(LIVE_CHROME_PROFILE_ID, "agent"),
+    ]);
+    expect(first).toBe(context);
+    expect(second).toBe(context);
+    expect(launches.connect).toHaveBeenCalledExactlyOnceWith(
+      "ws://127.0.0.1:9222/devtools/browser/test",
+      { timeout: 60_000, noDefaults: true },
+    );
+    expect(launches.launch).not.toHaveBeenCalled();
+    expect(launches.persistent).not.toHaveBeenCalled();
+    await expect(pool.clearProfile(LIVE_CHROME_PROFILE_ID)).rejects.toThrow("in Chrome");
+    expect(launches.rm).not.toHaveBeenCalled();
+    await pool.close();
+    expect(disconnect).toHaveBeenCalledTimes(1);
+    expect(context.close).not.toHaveBeenCalled();
+    expect(existingPage.close).not.toHaveBeenCalled();
+  });
+
+  it("retries a refused Chrome connection on the next explicit open without launching another browser", async () => {
+    const context = makeContext();
+    const browser = {
+      contexts: () => [context],
+      close: vi.fn().mockResolvedValue(undefined),
+      on: vi.fn(),
+    } as unknown as Browser;
+    launches.connect
+      .mockRejectedValueOnce(new Error("Connection refused"))
+      .mockResolvedValueOnce(browser);
+    const pool = new ServerBrowserContexts({
+      ...options(),
+      chromeEndpoint: async () => "ws://127.0.0.1:9222/devtools/browser/test",
+    });
+    await expect(pool.contextFor(LIVE_CHROME_PROFILE_ID)).rejects.toThrow("Connection refused");
+    expect(await pool.contextFor(LIVE_CHROME_PROFILE_ID)).toBe(context);
+    expect(launches.connect).toHaveBeenCalledTimes(2);
+    expect(launches.launch).not.toHaveBeenCalled();
+    await pool.close();
+  });
   it("lazily shares one browser across concurrent isolated sessions and reuses each context", async () => {
     const browser = makeBrowser();
     const launch = Promise.withResolvers<Browser>();
@@ -99,10 +164,12 @@ describe("ServerBrowserContexts", () => {
     expect(await pool.contextFor("work/team")).toBe(persistent);
     expect(await pool.contextFor("work/team", "agent")).not.toBe(persistent);
     expect(launches.persistent).toHaveBeenCalledExactlyOnceWith(
-      "/test/profiles/work%2Fteam",
+      NodePath.join("/test/profiles", "work%2Fteam"),
       expect.objectContaining({ chromiumSandbox: true, executablePath: "/test/chromium" }),
     );
-    expect(launches.mkdir).toHaveBeenCalledWith("/test/profiles/work%2Fteam", { recursive: true });
+    expect(launches.mkdir).toHaveBeenCalledWith(NodePath.join("/test/profiles", "work%2Fteam"), {
+      recursive: true,
+    });
     await pool.close();
     expect(human.close).toHaveBeenCalledTimes(1);
   });
@@ -121,16 +188,19 @@ describe("ServerBrowserContexts", () => {
     });
     await pool.clearProfile("work/team");
     expect(onContextClose).toHaveBeenCalledExactlyOnceWith(persistent);
-    expect(launches.rm).toHaveBeenCalledExactlyOnceWith("/test/profiles/work%2Fteam", {
-      recursive: true,
-      force: true,
-    });
+    expect(launches.rm).toHaveBeenCalledExactlyOnceWith(
+      NodePath.join("/test/profiles", "work%2Fteam"),
+      {
+        recursive: true,
+        force: true,
+      },
+    );
     expect(await pool.contextFor("work/team", "agent")).toBe(agent);
     expect(browser.contexts[0]?.close).not.toHaveBeenCalled();
     launches.persistent.mockResolvedValue(makeContext() as unknown as BrowserContext);
     expect(await pool.contextFor("work/team")).not.toBe(persistent);
     await pool.clearProfile("never-opened");
-    expect(launches.rm).toHaveBeenLastCalledWith("/test/profiles/never-opened", {
+    expect(launches.rm).toHaveBeenLastCalledWith(NodePath.join("/test/profiles", "never-opened"), {
       recursive: true,
       force: true,
     });

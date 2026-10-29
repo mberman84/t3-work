@@ -39,6 +39,7 @@ export class ScratchThreadPromotion extends Context.Service<
      */
     readonly promote: (input: {
       readonly threadId: ThreadId;
+      readonly targetProjectId?: ProjectId;
     }) => Effect.Effect<{ readonly projectId: ProjectId }, ScratchThreadPromotionError>;
   }
 >()("t3/project/ScratchThreadPromotion") {}
@@ -68,6 +69,42 @@ const make = Effect.gen(function* () {
       .getById(thread.projectId)
       .pipe(Effect.mapError(fail("Could not read the thread's project.")));
     const folder = thread.worktreePath ?? Option.getOrUndefined(project)?.workspaceRoot;
+    if (input.targetProjectId !== undefined) {
+      const target = yield* projects
+        .getById(input.targetProjectId)
+        .pipe(Effect.mapError(fail("Could not read the destination project.")));
+      if (Option.isNone(target) || target.value.deletedAt !== null)
+        return yield* new ScratchThreadPromotionError({ reason: "Destination project not found." });
+      const records = yield* threads
+        .getThreadRecords(thread.id, ["runs", "runtimeRequests"], { turnItemTypes: [] })
+        .pipe(Effect.mapError(fail("Could not read the thread's working state.")));
+      if (threadHasUnfinishedWork(records))
+        return yield* new ScratchThreadPromotionError({
+          reason: "Finish or stop this chat before moving it.",
+        });
+      const projectId = input.targetProjectId;
+      return yield* Effect.uninterruptible(
+        Effect.gen(function* () {
+          yield* threads
+            .dispatch({
+              type: "thread.project.adopt-folder",
+              commandId: CommandId.make(`thread-project-move:${yield* randomId}`),
+              threadId: thread.id,
+              projectId,
+              preserveWorkspace: true,
+            })
+            .pipe(Effect.mapError(fail("Could not move the chat.")));
+          yield* scheduledTasks
+            .moveThreadTasks({ threadIds: [thread.id], projectId })
+            .pipe(
+              Effect.mapError(
+                fail("The chat moved, but its scheduled tasks could not be updated. Try again."),
+              ),
+            );
+          return { projectId };
+        }),
+      );
+    }
     const scratchRoot = Option.getOrUndefined(yield* managedFolders.scratchRoot);
     const isScratch = yield* managedFolders.isScratchProject(thread.projectId);
     // A thread already rooted at its folder is a partial earlier promotion; finish it.

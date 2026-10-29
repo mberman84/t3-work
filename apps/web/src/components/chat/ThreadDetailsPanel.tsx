@@ -1,3 +1,4 @@
+import { useDeveloperToolsEnabled } from "~/hooks/useDeveloperTools";
 import type {
   EditorId,
   EnvironmentId,
@@ -28,13 +29,14 @@ import { ThreadDetailsItemsMenuItems } from "./ThreadDetailsItemsMenu";
 import { resolveThreadDetailsVisibility, THREAD_DETAILS_ITEMS } from "./threadDetailsItems";
 import { useClientSettings } from "../../hooks/useSettings";
 import { cn } from "../../lib/utils";
-import { SlidersHorizontalIcon } from "lucide-react";
+import { ChevronDownIcon, SlidersHorizontalIcon } from "lucide-react";
 import { ThreadDetailsControl } from "./ThreadDetailsControl";
 import {
   THREAD_DETAILS_PANEL_ICON_CLASS,
   THREAD_DETAILS_PANEL_LABEL_CLASS,
 } from "./threadDetailsPanelStyles";
 import { Menu, MenuPopup } from "../ui/menu";
+import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "../ui/collapsible";
 
 const GitActionsControl = memo(BaseGitActionsControl);
 
@@ -83,8 +85,10 @@ interface ThreadDetailsPanelProps extends Pick<
 }
 
 export function ThreadDetailsPanel(props: ThreadDetailsPanelProps) {
+  const developerTools = useDeveloperToolsEnabled();
   const visible = useClientSettings(resolveThreadDetailsVisibility);
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
+  const [developerToolsOpen, setDeveloperToolsOpen] = useState(false);
   const fileScripts = useT3ProjectFileScripts(
     props.environmentId,
     props.activeProjectScripts && visible.scripts ? props.gitCwd : null,
@@ -158,7 +162,7 @@ export function ThreadDetailsPanel(props: ThreadDetailsPanelProps) {
         return (
           <>
             <div className="group/details-items">
-              {show.environment || show.openIn || show.scripts ? (
+              {show.environment ? (
                 <ThreadDetailsSection
                   headingId="thread-details-workspace-heading"
                   title="Workspace"
@@ -179,62 +183,78 @@ export function ThreadDetailsPanel(props: ThreadDetailsPanelProps) {
                         {...branchToolbarProps}
                       />
                     ) : null}
-
-                    {show.openIn ? (
-                      <OpenInPicker
-                        keybindings={props.keybindings}
-                        environmentId={props.environmentId}
-                        availableEditors={props.availableEditors}
-                        openInCwd={props.gitCwd}
-                        enableShortcut={props.openInShortcutEnabled}
-                        displayMode="panel"
-                      />
-                    ) : null}
-
-                    {show.scripts && props.activeProjectScripts ? (
-                      <ProjectScriptsControl
-                        environmentId={props.environmentId}
-                        displayMode="panel"
-                        scripts={props.activeProjectScripts}
-                        fileScripts={fileScripts}
-                        preferredScriptId={props.preferredScriptId}
-                        onRunScript={props.onRunProjectScript}
-                        onAddScript={props.onAddProjectScript}
-                        onUpdateScript={props.onUpdateProjectScript}
-                        onDeleteScript={props.onDeleteProjectScript}
-                      />
-                    ) : null}
                   </div>
                 </ThreadDetailsSection>
               ) : null}
 
-              {props.gitCwd && (show.branch || show.git) ? (
+              {developerTools &&
+              props.gitCwd &&
+              (show.openIn || show.scripts || show.branch || show.git) ? (
                 <ThreadDetailsSection
                   headingId="thread-details-version-control-heading"
-                  title="Version Control"
+                  title="Developer tools"
                   showHeading={false}
                   separated={density === "full"}
                 >
-                  <div className="flex flex-col">
-                    {show.branch ? (
-                      <BranchToolbar layout="panel" panelSection="branch" {...branchToolbarProps} />
-                    ) : null}
-                    {show.git ? (
-                      <GitActionsControl
-                        compact={density !== "full"}
-                        showActions={visible.gitActions}
-                        showChanges={visible.changes}
-                        gitCwd={props.gitCwd}
-                        activeThreadRef={activeThreadRef}
-                        {...(props.draftId ? { draftId: props.draftId } : {})}
-                        {...(props.onOpenChanges ? { onOpenChanges: props.onOpenChanges } : {})}
+                  <Collapsible open={developerToolsOpen} onOpenChange={setDeveloperToolsOpen}>
+                    <CollapsibleTrigger render={<ThreadDetailsControl part="row" tone="muted" />}>
+                      <span className={THREAD_DETAILS_PANEL_LABEL_CLASS}>Developer tools</span>
+                      <ChevronDownIcon
+                        aria-hidden
+                        className={cn(
+                          THREAD_DETAILS_PANEL_ICON_CLASS,
+                          developerToolsOpen && "rotate-180",
+                        )}
                       />
-                    ) : null}
-                  </div>
+                    </CollapsibleTrigger>
+                    <CollapsiblePanel animate={false} keepMounted>
+                      {show.openIn ? (
+                        <OpenInPicker
+                          keybindings={props.keybindings}
+                          environmentId={props.environmentId}
+                          availableEditors={props.availableEditors}
+                          openInCwd={props.gitCwd}
+                          enableShortcut={props.openInShortcutEnabled}
+                          displayMode="panel"
+                        />
+                      ) : null}
+                      {show.scripts && props.activeProjectScripts ? (
+                        <ProjectScriptsControl
+                          environmentId={props.environmentId}
+                          displayMode="panel"
+                          scripts={props.activeProjectScripts}
+                          fileScripts={fileScripts}
+                          preferredScriptId={props.preferredScriptId}
+                          onRunScript={props.onRunProjectScript}
+                          onAddScript={props.onAddProjectScript}
+                          onUpdateScript={props.onUpdateProjectScript}
+                          onDeleteScript={props.onDeleteProjectScript}
+                        />
+                      ) : null}
+                      {show.branch ? (
+                        <BranchToolbar
+                          layout="panel"
+                          panelSection="branch"
+                          {...branchToolbarProps}
+                        />
+                      ) : null}
+                      {show.git ? (
+                        <GitActionsControl
+                          compact={density !== "full"}
+                          showActions={visible.gitActions}
+                          showChanges={visible.changes}
+                          gitCwd={props.gitCwd}
+                          activeThreadRef={activeThreadRef}
+                          {...(props.draftId ? { draftId: props.draftId } : {})}
+                          {...(props.onOpenChanges ? { onOpenChanges: props.onOpenChanges } : {})}
+                        />
+                      ) : null}
+                    </CollapsiblePanel>
+                  </Collapsible>
                 </ThreadDetailsSection>
               ) : null}
 
-              {density === "full" && !props.draftId && visible.servers ? (
+              {developerTools && density === "full" && !props.draftId && visible.servers ? (
                 <ThreadServersPanel environmentId={props.environmentId} threadId={props.threadId} />
               ) : null}
 

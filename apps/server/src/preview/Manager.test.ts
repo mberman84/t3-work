@@ -1,7 +1,7 @@
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { it } from "@effect/vitest";
-import { type PreviewEvent, ThreadId } from "@t3tools/contracts";
+import { LIVE_CHROME_PROFILE_ID, type PreviewEvent, ThreadId } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as PubSub from "effect/PubSub";
@@ -76,6 +76,14 @@ it.layer(layer)("PreviewManager", (it) => {
       });
       const listed = yield* manager.list({ threadId });
       expect(listed.sessions.find((s) => s.tabId === opened.tabId)?.profileId).toBe("work");
+      const chrome = yield* manager.open({
+        threadId,
+        profileId: LIVE_CHROME_PROFILE_ID,
+        runtime: "desktop",
+      });
+      expect(chrome.runtime).toBe("server");
+      expect(chrome.headless).toBe(true);
+      expect(chrome.profileId).toBe(LIVE_CHROME_PROFILE_ID);
     }),
   );
 

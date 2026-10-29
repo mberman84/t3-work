@@ -1,3 +1,5 @@
+import { isDeveloperCommand } from "~/developerTools";
+import { useDeveloperToolsEnabled } from "~/hooks/useDeveloperTools";
 import { threadPullRequestLinkMode } from "@t3tools/client-runtime/thread-pull-request-compatibility";
 import { visibleThreadPullRequests } from "@t3tools/shared/threadPullRequests";
 
@@ -58,7 +60,6 @@ import {
   ChevronRightIcon,
   CornerLeftUpIcon,
   FileSearchIcon,
-  FolderGit2Icon,
   FolderIcon,
   FolderPlusIcon,
   MessageSquareDashedIcon,
@@ -464,6 +465,7 @@ function OpenCommandPaletteDialog(props: {
     await copyThreadReference(activeThreadReferenceCopyTarget);
   };
   const threads = useThreadShells();
+  const developerTools = useDeveloperToolsEnabled();
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
   const providersByEnvironment = useEnvironmentProviders();
   const { changeThemeItem, changeAppearanceItem, themeEditorItem } = useCommandPaletteThemeItems();
@@ -878,6 +880,7 @@ function OpenCommandPaletteDialog(props: {
     source: AddProjectRemoteSource,
   ): void => {
     setAddProjectEnvironmentId(environmentId);
+    if (!developerTools) return;
     setAddProjectCloneFlow({ step: "repository", environmentId, source });
     pushPaletteView({
       addonIcon: remoteProjectSourceIcon(source, ADDON_ICON_CLASS),
@@ -900,7 +903,7 @@ function OpenCommandPaletteDialog(props: {
     setNewProjectPublishes(false);
     setNewProjectPublishKind(null);
     pushPaletteView({
-      addonIcon: <FolderGit2Icon className={ADDON_ICON_CLASS} />,
+      addonIcon: <FolderIcon className={ADDON_ICON_CLASS} />,
       groups: [],
     });
   };
@@ -935,8 +938,8 @@ function OpenCommandPaletteDialog(props: {
         value: `action:add-project:${environmentId}:new`,
         searchTerms: ["new project", "create", "empty", "repository", "git init"],
         title: "New project",
-        description: "Start a new Git repository from a name",
-        icon: <FolderGit2Icon className={ITEM_ICON_CLASS} />,
+        description: "Organize related chats under a name",
+        icon: <FolderPlusIcon className={ITEM_ICON_CLASS} />,
         keepOpen: true,
         run: async () => {
           startNewProject(environmentId, environmentId);
@@ -1101,7 +1104,8 @@ function OpenCommandPaletteDialog(props: {
         });
         return;
       case "choose-source":
-        startAddProjectSourceSelection(addProjectEntry.environmentId);
+        if (developerTools) startAddProjectSourceSelection(addProjectEntry.environmentId);
+        else startNewProject(addProjectEntry.environmentId, addProjectEntry.environmentId);
         return;
     }
   };
@@ -1407,7 +1411,7 @@ function OpenCommandPaletteDialog(props: {
       value: "action:new-project",
       searchTerms: ["new project", "create project", "empty", "repository", "repo", "git init"],
       title: "New project",
-      icon: <FolderGit2Icon className={ITEM_ICON_CLASS} />,
+      icon: <FolderPlusIcon className={ITEM_ICON_CLASS} />,
       keepOpen: true,
       run: async () => {
         openNewProjectFlow();
@@ -1812,7 +1816,7 @@ function OpenCommandPaletteDialog(props: {
       createNewProject({
         environmentId: newProjectFlow.environmentId,
         name: newProjectName,
-        publishTo: newProjectPublishes ? newProjectPublishTarget : null,
+        publishTo: developerTools && newProjectPublishes ? newProjectPublishTarget : null,
       }),
     );
     newProjectSubmittingRef.current = false;
@@ -2113,7 +2117,7 @@ function OpenCommandPaletteDialog(props: {
           })),
         };
   const newProjectExistingGroup: CommandPaletteView["groups"][number] | null =
-    newProjectFlow === null
+    !developerTools || newProjectFlow === null
       ? null
       : {
           value: "new-project-existing",
@@ -2123,8 +2127,8 @@ function OpenCommandPaletteDialog(props: {
               kind: "action",
               value: "new-project:existing",
               searchTerms: [],
-              title: "Add existing project",
-              description: "Open a folder or clone a repository",
+              title: "Use a folder or repository instead…",
+              description: "Optional developer workspace",
               icon: <FolderPlusIcon className={ITEM_ICON_CLASS} />,
               titleTrailingContent: (
                 <ChevronRightIcon className="-me-0.5 ms-auto size-4 shrink-0 text-muted-foreground/70" />
@@ -2137,7 +2141,7 @@ function OpenCommandPaletteDialog(props: {
           ],
         };
   const newProjectOptionGroups: CommandPaletteView["groups"] =
-    newProjectPublishTarget === null || newProjectPathPreview === null
+    !developerTools || newProjectPublishTarget === null || newProjectPathPreview === null
       ? []
       : [
           {
@@ -2196,6 +2200,32 @@ function OpenCommandPaletteDialog(props: {
     displayedGroups = relativePathNeedsActiveProject ? [] : cloneDestinationBrowseGroups;
   } else if (isBrowsing) {
     displayedGroups = relativePathNeedsActiveProject ? [] : browseGroups;
+  }
+  if (!developerTools) {
+    displayedGroups = displayedGroups
+      .map((group) => ({
+        ...group,
+        items: group.items.filter(
+          (item) =>
+            !(
+              item.kind === "action" &&
+              item.shortcutCommand &&
+              isDeveloperCommand(item.shortcutCommand)
+            ) &&
+            ![
+              "action:pull-requests",
+              "action:add-project:wsl-folder",
+              "action:copy-prompt-link-with-context",
+            ].includes(item.value) &&
+            !(
+              item.value.startsWith("action:add-project:") &&
+              !item.value.endsWith(":new") &&
+              !item.value.includes("environment:") &&
+              !item.value.endsWith("connect-environment")
+            ),
+        ),
+      }))
+      .filter((group) => group.items.length > 0);
   }
   const resultRows = buildCommandPaletteRows(displayedGroups);
   const autoHighlightsFirstRow =

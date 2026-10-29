@@ -1,5 +1,5 @@
 // @effect-diagnostics nodeBuiltinImport:off - Owns Playwright resources outside the Effect runtime.
-import { INCOGNITO_BROWSER_PROFILE_ID } from "@t3tools/contracts";
+import { INCOGNITO_BROWSER_PROFILE_ID, LIVE_CHROME_PROFILE_ID } from "@t3tools/contracts";
 import { constVoid } from "effect/Function";
 import * as NodeFSP from "node:fs/promises";
 import * as NodeModule from "node:module";
@@ -8,6 +8,7 @@ import * as NodePath from "node:path";
 import type { Browser, BrowserContext, CDPSession } from "playwright-core";
 
 import { sandboxDisabled } from "./PreviewBrowserHost.ts";
+import { readChromeEndpoint, type ChromeConnectionHost } from "./ChromeConnection.ts";
 
 // Playwright needs its files on disk. createRequire also resolves it from a Node SEA executable.
 const requirePlaywright = NodeModule.createRequire(import.meta.url);
@@ -20,6 +21,8 @@ interface Options {
   readonly diagnose?: (executable: string, cause: unknown) => Promise<unknown>;
   readonly env?: NodeJS.ProcessEnv;
   readonly onContextClose?: (context: BrowserContext) => void;
+  readonly chromeEndpoint?: () => Promise<string>;
+  readonly chromeHost?: ChromeConnectionHost;
 }
 
 const UA_PLATFORMS: Partial<Record<NodeJS.Platform, string>> = {
@@ -72,6 +75,7 @@ export class ServerBrowserContexts {
   private readonly contexts = new Map<string, Promise<BrowserContext>>();
   private readonly clearing = new Map<string, Promise<void>>();
   private browser: Promise<Browser> | undefined;
+  private chrome: Promise<Browser> | undefined;
   private closing: Promise<void> | undefined;
 
   constructor(options: Options) {
@@ -124,6 +128,7 @@ export class ServerBrowserContexts {
 
   contextFor(profileId: string, isolationKey?: string): Promise<BrowserContext> {
     if (this.closing) return Promise.reject(new Error("The preview browser is closed."));
+    if (profileId === LIVE_CHROME_PROFILE_ID) return this.chromeContext();
     const key = JSON.stringify([profileId, isolationKey ?? null]);
     const cached = this.contexts.get(key);
     if (cached) return cached;
@@ -147,6 +152,41 @@ export class ServerBrowserContexts {
       if (this.contexts.get(key) === pending) this.contexts.delete(key);
     });
     return pending;
+  }
+
+  private async chromeContext(): Promise<BrowserContext> {
+    if (!this.chrome) {
+      const endpoint =
+        this.options.chromeEndpoint?.() ??
+        (this.options.chromeHost
+          ? readChromeEndpoint(this.options.chromeHost)
+          : Promise.reject(new Error("Live Chrome is not configured on this environment.")));
+      const pending = endpoint
+        .then((endpoint) => {
+          const { chromium } = loadPlaywright();
+          return chromium.connectOverCDP(endpoint, { timeout: 60_000, noDefaults: true });
+        })
+        .then((browser) => {
+          browser.on("disconnected", () => {
+            if (this.chrome === pending) this.chrome = undefined;
+          });
+          return browser;
+        });
+      this.chrome = pending;
+      void pending.catch(() => {
+        if (this.chrome === pending) this.chrome = undefined;
+      });
+    }
+    const browser = await this.chrome;
+    if (this.closing) {
+      throw new Error("The preview browser is closed.");
+    }
+    const context = browser.contexts()[0];
+    if (!context)
+      throw new Error(
+        "Chrome did not expose its signed-in profile. Reconnect from chrome://inspect/#remote-debugging.",
+      );
+    return context;
   }
 
   private async createContext(profileId: string, isolationKey?: string) {
@@ -192,6 +232,8 @@ export class ServerBrowserContexts {
   }
 
   async clearProfile(profileId: string) {
+    if (profileId === LIVE_CHROME_PROFILE_ID)
+      throw new Error("Manage this profile's cookies and site data in Chrome.");
     if (profileId === INCOGNITO_BROWSER_PROFILE_ID) return;
     const key = JSON.stringify([profileId, null]);
     const clearing = (async () => {
@@ -222,6 +264,9 @@ export class ServerBrowserContexts {
     );
     const browser = await this.browser?.catch(() => undefined);
     await browser?.close().catch(constVoid);
+    const chrome = await this.chrome?.catch(() => undefined);
+    // Playwright's CDP browser.close disconnects the transport; it never closes Chrome's profile.
+    await chrome?.close().catch(constVoid);
     this.contexts.clear();
   }
 }

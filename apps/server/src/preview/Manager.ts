@@ -10,6 +10,7 @@ import {
   type PreviewResizeInput,
   type PreviewAdjustInput,
   FILL_PREVIEW_VIEWPORT,
+  LIVE_CHROME_PROFILE_ID,
   PreviewSessionLookupError,
   type PreviewSessionSnapshot,
 } from "@t3tools/contracts";
@@ -174,7 +175,8 @@ export const make = Effect.gen(function* PreviewManagerMake() {
 
   const open: PreviewManager["Service"]["open"] = Effect.fn("PreviewManager.open")(
     function* (input) {
-      const runtime = input.runtime;
+      const liveChrome = input.profileId === LIVE_CHROME_PROFILE_ID;
+      const runtime = liveChrome ? "server" : input.runtime;
       // Persisted client surfaces must not bind to a different tab after a server restart.
       const tabId = `${newPreviewTabId()}${runtime === "server" ? `_${serverEpoch}` : ""}`;
       const updatedAt = yield* currentIsoTimestamp;
@@ -189,6 +191,7 @@ export const make = Effect.gen(function* PreviewManagerMake() {
         viewport: input.viewport ?? FILL_PREVIEW_VIEWPORT,
         ...(input.profileId === undefined ? {} : { profileId: input.profileId }),
         ...(runtime === undefined ? {} : { runtime }),
+        ...(liveChrome ? { headless: true } : {}),
         ...(runtime === "server" && input.automationOwner !== undefined
           ? { automationOwner: input.automationOwner }
           : {}),

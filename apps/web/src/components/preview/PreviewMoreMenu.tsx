@@ -1,3 +1,4 @@
+import { useDeveloperToolsEnabled } from "~/hooks/useDeveloperTools";
 import type { DesktopPreviewColorScheme } from "@t3tools/contracts";
 import { Minus, MoreVertical, Plus as PlusIcon, RotateCcw } from "lucide-react";
 
@@ -37,6 +38,9 @@ export interface PreviewMoreMenuActions {
   readonly clearCache: () => void;
   readonly openDevTools?: () => void;
   readonly toggleNativePictureInPicture?: () => void;
+  readonly openChromeTab?: () => void;
+  readonly openBuiltInTab?: () => void;
+  readonly externalProfile?: boolean;
 }
 
 interface Props {
@@ -79,14 +83,22 @@ export function PreviewMoreMenu({
 }: Props) {
   const zoomLabel = `${Math.round(zoomFactor * 100)}%`;
   const disabled = !enabled;
+  const developerTools = useDeveloperToolsEnabled();
   return (
     <Menu>
       <MenuTriggerButton />
       <MenuPopup align="end" sideOffset={6}>
+        {actions.openBuiltInTab ? (
+          <MenuItem onClick={actions.openBuiltInTab}>New tab in built-in browser</MenuItem>
+        ) : null}
+        {actions.openChromeTab ? (
+          <MenuItem onClick={actions.openChromeTab}>New tab in signed-in Chrome</MenuItem>
+        ) : null}
+        {actions.openChromeTab || actions.openBuiltInTab ? <MenuSeparator /> : null}
         <MenuItem onClick={actions.hardReload} disabled={disabled}>
           Hard reload
         </MenuItem>
-        {actions.openDevTools ? (
+        {developerTools && actions.openDevTools ? (
           <MenuItem onClick={actions.openDevTools} disabled={disabled}>
             Open DevTools
           </MenuItem>
@@ -99,9 +111,11 @@ export function PreviewMoreMenu({
           </MenuItem>
         ) : null}
         {move ? <MenuItem onClick={move.onMove}>{move.label}</MenuItem> : null}
-        <MenuItem onClick={onToggleDeviceToolbar} disabled={disabled}>
-          {deviceToolbarVisible ? "Hide device toolbar" : "Show device toolbar"}
-        </MenuItem>
+        {developerTools ? (
+          <MenuItem onClick={onToggleDeviceToolbar} disabled={disabled}>
+            {deviceToolbarVisible ? "Hide device toolbar" : "Show device toolbar"}
+          </MenuItem>
+        ) : null}
         <MenuSub>
           <MenuSubTrigger disabled={disabled}>Appearance</MenuSubTrigger>
           <MenuSubPopup>
@@ -168,8 +182,12 @@ export function PreviewMoreMenu({
               <span className="block truncate">Profile: {profileName}</span>
             </MenuGroupLabel>
           ) : null}
-          <MenuItem onClick={actions.clearCookies}>Clear cookies</MenuItem>
-          <MenuItem onClick={actions.clearCache}>Clear cache</MenuItem>
+          <MenuItem disabled={actions.externalProfile} onClick={actions.clearCookies}>
+            Clear cookies
+          </MenuItem>
+          <MenuItem disabled={actions.externalProfile} onClick={actions.clearCache}>
+            Clear cache
+          </MenuItem>
         </MenuGroup>
       </MenuPopup>
     </Menu>

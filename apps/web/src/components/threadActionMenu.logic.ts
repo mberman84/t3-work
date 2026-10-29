@@ -1,3 +1,4 @@
+import { filterDeveloperMenuItems } from "~/developerTools";
 import type { ContextMenuItem } from "@t3tools/contracts";
 import type { SnoozePreset } from "@t3tools/client-runtime/state/thread-settled";
 
@@ -6,6 +7,8 @@ export type ThreadActionMenuId =
   | "new-thread-on-branch"
   | "filter-by-project"
   | "turn-into-project"
+  | "move-project"
+  | `move-project:${string}`
   | "project-settings"
   | "pin"
   | "unpin"
@@ -40,6 +43,7 @@ export function buildDraftActionMenuItems(options: {
   readonly hasPath: boolean;
   readonly hasBranch: boolean;
   readonly hasProject: boolean;
+  readonly developerToolsEnabled?: boolean;
 }): ReadonlyArray<ContextMenuItem<DraftActionMenuId>> {
   return [
     {
@@ -49,7 +53,7 @@ export function buildDraftActionMenuItems(options: {
       disabled: !options.hasPath && !options.hasBranch,
       children: [
         ...(options.hasPath ? [{ id: "copy-path" as const, label: "Path", icon: "folder" }] : []),
-        ...(options.hasBranch
+        ...(options.developerToolsEnabled && options.hasBranch
           ? [{ id: "copy-branch" as const, label: "Branch", icon: "git-branch" }]
           : []),
       ],
@@ -69,6 +73,7 @@ export function buildDraftActionMenuItems(options: {
 
 export interface ThreadActionMenuState {
   readonly canOperate: boolean;
+  readonly developerToolsEnabled?: boolean;
   readonly canFind?: boolean;
   readonly branch: string | null;
   readonly projectFilter: {
@@ -95,6 +100,7 @@ export interface ThreadActionMenuState {
   readonly canShareWithGuest?: boolean;
   /** A No project thread with its own folder, on a server that can promote it. */
   readonly canTurnIntoProject?: boolean;
+  readonly moveProjects?: ReadonlyArray<{ readonly id: string; readonly label: string }>;
 }
 
 /** Local navigation, read markers, and copying remain available to read-only clients. */
@@ -192,7 +198,33 @@ export function buildThreadActionMenuItems(
           },
         ]
       : []),
-    ...(state.canTurnIntoProject
+    ...(state.moveProjects
+      ? [
+          {
+            id: "move-project" as const,
+            label: "Move to project",
+            icon: "folder-tree",
+            disabled: state.isRunning,
+            children: [
+              { id: "move-project:none" as const, label: "No project" },
+              ...state.moveProjects.map((project) => ({
+                id: `move-project:${project.id}` as const,
+                label: project.label,
+              })),
+              ...(state.canTurnIntoProject
+                ? [
+                    {
+                      id: "turn-into-project" as const,
+                      label: "New project from this chat…",
+                      separatorBefore: true,
+                    },
+                  ]
+                : []),
+            ],
+          },
+        ]
+      : []),
+    ...(state.canTurnIntoProject && !state.moveProjects
       ? [
           {
             id: "turn-into-project" as const,
@@ -252,9 +284,10 @@ export function buildThreadActionMenuItems(
       icon: "trash",
     },
   ];
+  const visibleItems = state.developerToolsEnabled ? items : filterDeveloperMenuItems(items);
   return state.canOperate
-    ? items
-    : items.map((item) =>
+    ? visibleItems
+    : visibleItems.map((item) =>
         threadActionRequiresOperate(item.id)
           ? {
               ...item,

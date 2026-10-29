@@ -1289,14 +1289,30 @@ it.live(
           profiles: [
             { id: "default", name: "Default" },
             { id: "incognito", name: "Incognito", incognito: true },
+            { id: "chrome-live", name: "Chrome (live)" },
             { id: "profile-work", name: "Work" },
           ],
+        });
+        yield* browser.reportProfiles({ profiles: [], defaultProfileId: "chrome-live" });
+        const builtIn = yield* openWith();
+        const chrome = yield* openWith("chrome-live");
+        const updated = yield* manager.list({ threadId: scope.thread.threadId });
+        expect(updated.sessions.find((session) => session.tabId === builtIn.tabId)?.profileId).toBe(
+          "default",
+        );
+        expect(updated.sessions.find((session) => session.tabId === chrome.tabId)?.profileId).toBe(
+          "chrome-live",
+        );
+        expect(builtIn.defaultProfileId).toBe("default");
+        yield* browser.reportProfiles({
+          profiles: [{ id: "profile-work", name: "Work", kind: "persistent" }],
+          defaultProfileId: "profile-work",
         });
         const unknown = yield* openWith("Personal").pipe(Effect.flip);
         expect(unknown).toMatchObject({
           _tag: "PreviewAutomationExecutionError",
           reason:
-            'No browser profile is named "Personal". Use one of: Default (id default), Incognito (id incognito), Work (id profile-work).',
+            'No browser profile is named "Personal". Use one of: Default (id default), Incognito (id incognito), Chrome (live) (id chrome-live), Work (id profile-work).',
         });
       }),
     ).pipe(Effect.provide(layer)),

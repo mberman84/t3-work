@@ -1,3 +1,5 @@
+import { isDeveloperCommand } from "~/developerTools";
+import { useDeveloperToolsEnabled } from "~/hooks/useDeveloperTools";
 import { useEnvironmentScope } from "../../state/session";
 import { useEnvironmentsWithScope, readEnvironmentScope } from "../../state/session";
 import {
@@ -1278,11 +1280,16 @@ function keybindingAnchorIds(rows: ReturnType<typeof buildKeybindingRows>) {
 
 // Cache rows in a separate hook so the compiler does not rebuild them per search keystroke.
 function useKeybindingCatalog() {
+  const developerTools = useDeveloperToolsEnabled();
   const serverKeybindings = useSettingsScope().environment?.serverConfig?.keybindings;
   const merged = mergeWithDefaultKeybindings(serverKeybindings ?? []);
   return {
-    commandOptions: buildKeybindingCommandOptions(merged),
-    allRows: buildKeybindingRows(merged),
+    commandOptions: buildKeybindingCommandOptions(merged).filter(
+      (option) => developerTools || !isDeveloperCommand(option),
+    ),
+    allRows: buildKeybindingRows(merged).filter(
+      (row) => developerTools || !isDeveloperCommand(row.command),
+    ),
   };
 }
 

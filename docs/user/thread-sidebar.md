@@ -37,11 +37,14 @@ folder, so the files the agent wrote stay until you delete them. Branch, worktre
 these folders are not Git repositories. This is unavailable when the data
 directory itself sits inside a Git checkout.
 
-When the work grows into something real, pick **Turn into project** from the
-thread's menu. The thread's folder becomes a project where it is, so nothing
-moves and the agent keeps working in the same place. Other threads in that folder
-move with it. Rename the project in its settings, and use **Initialize Git** to
-get branch and diff controls.
+Projects organize related threads. From a thread's menu, choose **Move to project**
+and select an existing project, or choose **No project** to remove it from a project.
+The conversation, files, and agent's working folder stay intact. Stop an active
+thread before moving it.
+
+For a thread without a project, **New project from this chat** turns its folder
+into a new project. Other threads using that folder move with it. Rename the
+project in its settings, and use **Initialize Git** if you want branch and diff controls.
 
 ### Start in the background
 

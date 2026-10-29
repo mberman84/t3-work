@@ -10,6 +10,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
 import * as Electron from "electron";
+import * as HostProcess from "@t3tools/shared/HostProcess";
 
 // Remote editor deep links must reach the OS handler.
 const SAFE_WEB_PROTOCOLS = new Set(["http:", "https:"]);
@@ -75,9 +76,21 @@ export const make = ElectronShell.of({
         ),
     });
   }),
-  openSystemSettings: Effect.fn("ElectronShell.openSystemSettings")(function (pane) {
-    return Effect.promise(() =>
-      Electron.shell.openExternal(MAC_PERMISSION_SETTINGS_URLS[pane]).then(
+  openSystemSettings: Effect.fn("ElectronShell.openSystemSettings")(function* (pane) {
+    const platform = yield* HostProcess.Platform;
+    const url =
+      pane === "default-browser"
+        ? platform === "win32"
+          ? "ms-settings:defaultapps?registeredAppUser=T3Work"
+          : platform === "darwin"
+            ? "x-apple.systempreferences:com.apple.Desktop-Settings.extension"
+            : null
+        : platform === "darwin"
+          ? MAC_PERMISSION_SETTINGS_URLS[pane]
+          : null;
+    if (url === null) return false;
+    return yield* Effect.promise(() =>
+      Electron.shell.openExternal(url).then(
         () => true,
         () => false,
       ),

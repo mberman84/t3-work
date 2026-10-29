@@ -1,3 +1,5 @@
+import { useDeveloperToolsEnabled } from "~/hooks/useDeveloperTools";
+import { isDeveloperCommand, isDeveloperSettingsPath } from "~/developerTools";
 import { AuthEnvironmentMaintainScope } from "@t3tools/contracts";
 
 import { usePrimaryCloudLinkState } from "~/cloud/primaryCloudLinkState";
@@ -18,6 +20,7 @@ import {
 } from "./settingsSearch";
 
 export function useAvailableSettingsSearchItems(scopeSearch: SettingsScopeSearch = {}) {
+  const developerTools = useDeveloperToolsEnabled();
   const { environments } = useEnvironments();
   // Explicit booleans keep flags out of the filter cache so environment updates do not rebuild the list.
   const hasEnvironment =
@@ -69,5 +72,21 @@ export function useAvailableSettingsSearchItems(scopeSearch: SettingsScopeSearch
     hasThreadAutoSettlement,
     managedTunnelActive,
     hasPeerLinkHost,
-  });
+  }).filter(
+    (item) =>
+      developerTools ||
+      (!isDeveloperSettingsPath(item.to) &&
+        ![
+          "project-grouping",
+          "actions",
+          "project-actions",
+          "new-threads",
+          "simlock-hosts",
+          "wsl-backend",
+        ].includes(item.id) &&
+        !(
+          item.id.startsWith("keybinding-") &&
+          isDeveloperCommand(item.id.slice("keybinding-".length))
+        )),
+  );
 }

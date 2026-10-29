@@ -1,3 +1,4 @@
+import { DeveloperToolsGate } from "~/components/DeveloperToolsGate";
 import type { EnvironmentId, ProjectId } from "@t3tools/contracts";
 import { createFileRoute } from "@tanstack/react-router";
 
@@ -73,5 +74,9 @@ export const Route = createFileRoute("/_chat/pull-requests")({
       : {}),
     ...pullRequestSearchLabels(raw.labels),
   }),
-  component: PullRequestsPage,
+  component: () => (
+    <DeveloperToolsGate>
+      <PullRequestsPage />
+    </DeveloperToolsGate>
+  ),
 });

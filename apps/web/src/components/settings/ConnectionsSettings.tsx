@@ -1,3 +1,4 @@
+import { useDeveloperToolsEnabled } from "~/hooks/useDeveloperTools";
 import { SessionPermissions } from "./SessionPermissions";
 import { ChevronRightIcon, EllipsisIcon } from "lucide-react";
 import { useAtomValue } from "@effect/atom-react";
@@ -153,6 +154,7 @@ function LocalVersionStatusLabel() {
 
 /** Environments lists the machines this app connects to; access covers who may reach this one. */
 export function ConnectionsSettings({ view }: { readonly view: "environments" | "access" }) {
+  const developerTools = useDeveloperToolsEnabled();
   const desktopBridge = window.desktopBridge;
   const { environments } = useEnvironments();
   const primaryEnvironment = usePrimaryEnvironment();
@@ -771,6 +773,7 @@ export function ConnectionsSettings({ view }: { readonly view: "environments" | 
   };
 
   const renderWslRow = () => {
+    if (!developerTools) return null;
     if (!desktopWslState) {
       if (
         isWslSettingsRowVisible({ state: null, error: desktopWslError }) &&

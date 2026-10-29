@@ -1,3 +1,4 @@
+import { useDeveloperToolsEnabled } from "~/hooks/useDeveloperTools";
 import { useComposerMenuState } from "../chat/useComposerMenuState";
 import { useOrchestrationCommand } from "../../state/use-orchestration-command";
 import { AuthOrchestrationOperateScope } from "@t3tools/contracts";
@@ -176,6 +177,7 @@ function ProjectDetail({
   group: SidebarProjectSnapshot;
   hasOtherMembers: boolean;
 }) {
+  const developerTools = useDeveloperToolsEnabled();
   const navigate = useNavigate({ from: "/settings" });
   const primaryEnvironmentId = usePrimaryEnvironmentId();
   const { environments } = useEnvironments();
@@ -561,8 +563,8 @@ function ProjectDetail({
           />
         </SettingsSection>
         <ProjectDefaultsSettings category="project" />
-        <ProjectActionsSettings />
-        {hasMultipleCheckouts ? checkoutChoices : null}
+        <DeveloperProjectActions />
+        {developerTools && hasMultipleCheckouts ? checkoutChoices : null}
         <SettingsSection title="Danger">
           <SettingsRow
             title={
@@ -623,4 +625,9 @@ function ProjectDetail({
       ) : null}
     </>
   );
+}
+
+function DeveloperProjectActions() {
+  const enabled = useDeveloperToolsEnabled();
+  return enabled ? <ProjectActionsSettings /> : null;
 }

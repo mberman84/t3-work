@@ -11,13 +11,13 @@ const base = {
 };
 
 describe("resolveComposerControlsOwnership", () => {
-  it("hides the chip at the default and lets the effort menu answer composer.mode", () => {
+  it("keeps a separate permissions icon at the default", () => {
     const result = resolveComposerControlsOwnership(base);
     expect(result).toMatchObject({
-      accessDisplay: "hidden",
-      showModeBlock: false,
+      accessDisplay: "icon",
+      showModeBlock: true,
       hiddenBlockIds: [],
-      effortOwnsModeShortcut: true,
+      effortOwnsModeShortcut: false,
     });
   });
 
@@ -30,13 +30,13 @@ describe("resolveComposerControlsOwnership", () => {
     });
   });
 
-  it("never leaves an empty overflow menu: the effort chip overflows with the chip", () => {
+  it("moves permissions into the overflow without moving the effort chip", () => {
     const result = resolveComposerControlsOwnership({
       ...base,
       matchesDefault: false,
       measuredHiddenBlockCount: 1,
     });
-    expect(result.hiddenBlockIds).toEqual(["traits", "mode"]);
+    expect(result.hiddenBlockIds).toEqual(["mode"]);
     expect(result.overflowShowsPermissions).toBe(true);
     // One composer.mode target: the overflow menu, not the overflowed effort chip.
     expect(result.effortOwnsModeShortcut).toBe(false);
@@ -50,8 +50,8 @@ describe("resolveComposerControlsOwnership", () => {
     });
     expect(result.showModeBlock).toBe(true);
     expect(result.hiddenBlockIds).toEqual(["mode"]);
-    expect(result.overflowShowsPermissions).toBe(false);
-    expect(result.effortOwnsModeShortcut).toBe(true);
+    expect(result.overflowShowsPermissions).toBe(true);
+    expect(result.effortOwnsModeShortcut).toBe(false);
   });
 
   it("overflows only the chip when the Plan toggle gives the overflow menu content", () => {
@@ -62,9 +62,8 @@ describe("resolveComposerControlsOwnership", () => {
       measuredHiddenBlockCount: 1,
     });
     expect(result.hiddenBlockIds).toEqual(["mode"]);
-    // Permissions stay in the visible effort menu, which now answers composer.mode.
-    expect(result.overflowShowsPermissions).toBe(false);
-    expect(result.effortOwnsModeShortcut).toBe(true);
+    expect(result.overflowShowsPermissions).toBe(true);
+    expect(result.effortOwnsModeShortcut).toBe(false);
   });
 
   it("keeps a permissions icon for models without traits, even at the default", () => {

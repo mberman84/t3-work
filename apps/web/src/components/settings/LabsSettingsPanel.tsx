@@ -1,3 +1,4 @@
+import { useDeveloperToolsEnabled } from "~/hooks/useDeveloperTools";
 import { useAuth } from "@clerk/react";
 import { Link } from "@tanstack/react-router";
 
@@ -13,6 +14,7 @@ import { useScopedSettings, useUpdateScopedSettings } from "./useScopedSettings"
 
 /** Features still settling in, and legacy behavior kept for people who rely on it. */
 export function LabsSettingsPanel() {
+  const developerTools = useDeveloperToolsEnabled();
   return (
     <SettingsPageContainer>
       <SettingsSection id="beta" title="Beta">
@@ -21,7 +23,7 @@ export function LabsSettingsPanel() {
         {/* Clerk is only mounted when this build has T3 Connect. */}
         {hasCloudPublicConfig() ? <GuestLinksRowWithSignIn /> : <GuestLinksRow />}
         <LinkedEnvironmentsRow />
-        <SimlockHostsRow />
+        {developerTools ? <SimlockHostsRow /> : null}
       </SettingsSection>
       <LegacyFeaturesSection />
     </SettingsPageContainer>

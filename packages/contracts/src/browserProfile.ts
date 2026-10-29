@@ -15,7 +15,7 @@ export const BrowserProfileName = TrimmedNonEmptyString.check(
   Schema.isMaxLength(BROWSER_PROFILE_NAME_MAX_LENGTH),
 );
 
-export const BrowserProfileKind = Schema.Literals(["persistent", "incognito"]);
+export const BrowserProfileKind = Schema.Literals(["persistent", "incognito", "external"]);
 export type BrowserProfileKind = typeof BrowserProfileKind.Type;
 
 export const BrowserProfile = Schema.Struct({
@@ -27,10 +27,12 @@ export type BrowserProfile = typeof BrowserProfile.Type;
 
 export const DEFAULT_BROWSER_PROFILE_ID: BrowserProfileId = "default";
 export const INCOGNITO_BROWSER_PROFILE_ID: BrowserProfileId = "incognito";
+export const LIVE_CHROME_PROFILE_ID: BrowserProfileId = "chrome-live";
 
 export const BUILT_IN_BROWSER_PROFILES: ReadonlyArray<BrowserProfile> = [
   { id: DEFAULT_BROWSER_PROFILE_ID, name: "Default", kind: "persistent" },
   { id: INCOGNITO_BROWSER_PROFILE_ID, name: "Incognito", kind: "incognito" },
+  { id: LIVE_CHROME_PROFILE_ID, name: "Chrome (live)", kind: "external" },
 ];
 
 export function isBuiltInBrowserProfileId(id: string): boolean {
@@ -49,6 +51,16 @@ export function resolveBrowserProfiles(
     resolved.push(profile.kind === "persistent" ? profile : { ...profile, kind: "persistent" });
   }
   return resolved;
+}
+
+export function resolveDefaultBrowserProfileId(
+  profiles: ReadonlyArray<BrowserProfile>,
+  requestedId: string,
+): BrowserProfileId {
+  return (
+    profiles.find((profile) => profile.id === requestedId && profile.kind === "persistent")?.id ??
+    DEFAULT_BROWSER_PROFILE_ID
+  );
 }
 
 export function findBrowserProfile(

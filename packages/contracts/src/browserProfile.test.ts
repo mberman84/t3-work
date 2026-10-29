@@ -4,6 +4,7 @@ import {
   BUILT_IN_BROWSER_PROFILES,
   DEFAULT_BROWSER_PROFILE_ID,
   INCOGNITO_BROWSER_PROFILE_ID,
+  LIVE_CHROME_PROFILE_ID,
   resolveBrowserProfiles,
   type BrowserProfile,
 } from "./browserProfile.ts";
@@ -15,10 +16,14 @@ describe("resolveBrowserProfiles", () => {
     const resolved = resolveBrowserProfiles([
       { id: DEFAULT_BROWSER_PROFILE_ID, name: "Hijacked", kind: "persistent" },
       { id: INCOGNITO_BROWSER_PROFILE_ID, name: "Not incognito", kind: "persistent" },
+      { id: LIVE_CHROME_PROFILE_ID, name: "Fake Chrome", kind: "persistent" },
       work,
     ]);
 
     expect(resolved).toEqual([...BUILT_IN_BROWSER_PROFILES, work]);
+    expect(resolved.find((profile) => profile.id === LIVE_CHROME_PROFILE_ID)?.kind).toBe(
+      "external",
+    );
   });
 });
 

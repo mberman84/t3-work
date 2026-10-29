@@ -337,7 +337,7 @@ const TEST_IDENTITY = {
 const gitOutput = (cwd: string, args: ReadonlyArray<string>) =>
   git(cwd, args).pipe(Effect.map((result) => result.stdout.trim()));
 
-it.effect("starts a named project as a committed repository, and suffixes a taken name", () =>
+it.effect("creates ordinary projects without Git and only scaffolds repositories on request", () =>
   withScratch(({ baseDir }) =>
     withGitEnv(
       TEST_IDENTITY,
@@ -350,33 +350,38 @@ it.effect("starts a named project as a committed repository, and suffixes a take
         assert.equal(folders.namedProjectsRoot, root);
 
         const first = yield* folders.createNamedProject({ name: "Pinball Stats" });
-        const second = yield* folders.createNamedProject({ name: "pinball stats" });
+        const second = yield* folders.createNamedProject({
+          name: "pinball stats",
+          initializeGit: true,
+        });
 
         assert.equal(first.workspaceRoot, path.join(root, "pinball-stats"));
         assert.equal(second.workspaceRoot, path.join(root, "pinball-stats-2"));
         assert.isUndefined(first.commitError);
+        assert.isFalse(yield* fileSystem.exists(path.join(first.workspaceRoot, ".git")));
+        assert.deepEqual(yield* fileSystem.readDirectory(first.workspaceRoot), []);
         const project = Option.getOrThrow(yield* projects.getById(first.projectId));
         assert.equal(project.title, "Pinball Stats");
         assert.equal(project.workspaceRoot, first.workspaceRoot);
 
         const readme = yield* fileSystem.readFileString(
-          path.join(first.workspaceRoot, "README.md"),
+          path.join(second.workspaceRoot, "README.md"),
         );
-        assert.include(readme, "# Pinball Stats");
+        assert.include(readme, "# pinball stats");
         assert.include(readme, `src="assets/icon.svg"`);
         const icon = yield* fileSystem.readFileString(
-          path.join(first.workspaceRoot, "assets", "icon.svg"),
+          path.join(second.workspaceRoot, "assets", "icon.svg"),
         );
         assert.include(icon, ">PS</text>");
         assert.equal(
-          yield* gitOutput(first.workspaceRoot, ["log", "--format=%s"]),
+          yield* gitOutput(second.workspaceRoot, ["log", "--format=%s"]),
           "Initial commit",
         );
         assert.equal(
-          yield* gitOutput(first.workspaceRoot, ["rev-parse", "--abbrev-ref", "HEAD"]),
+          yield* gitOutput(second.workspaceRoot, ["rev-parse", "--abbrev-ref", "HEAD"]),
           "main",
         );
-        assert.equal(yield* gitOutput(first.workspaceRoot, ["status", "--porcelain"]), "");
+        assert.equal(yield* gitOutput(second.workspaceRoot, ["status", "--porcelain"]), "");
       }),
     ),
   ),
@@ -422,7 +427,10 @@ it.effect("keeps a named project and reports why when Git cannot commit", () =>
         );
         process.env.GIT_CONFIG_GLOBAL = path.join(baseDir, "no-identity.gitconfig");
 
-        const result = yield* folders.createNamedProject({ name: "No Identity" });
+        const result = yield* folders.createNamedProject({
+          name: "No Identity",
+          initializeGit: true,
+        });
 
         assert.include(result.commitError ?? "", "no name or email");
         assert.isTrue(Option.isSome(yield* projects.getById(result.projectId)));
@@ -452,7 +460,9 @@ it.effect("keeps a folder that another project owns when the create conflicts", 
         });
         yield* fileSystem.remove(taken, { recursive: true });
 
-        const failure = yield* Effect.flip(folders.createNamedProject({ name: "Taken" }));
+        const failure = yield* Effect.flip(
+          folders.createNamedProject({ name: "Taken", initializeGit: true }),
+        );
 
         assert.equal(failure._tag, "NamedProjectCreateError");
         assert.equal(failure.message, "Failed to create the project.");
@@ -512,7 +522,7 @@ it.effect("removes the folder when the create is cancelled before the project ex
           const path = yield* Path.Path;
 
           const fiber = yield* folders
-            .createNamedProject({ name: "Cancelled" })
+            .createNamedProject({ name: "Cancelled", initializeGit: true })
             .pipe(Effect.forkChild);
           yield* Deferred.await(scaffolding);
           assert.deepEqual(yield* fileSystem.readDirectory(path.resolve(baseDir, "projects")), [

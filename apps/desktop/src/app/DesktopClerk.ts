@@ -210,12 +210,14 @@ export const make = Effect.gen(function* () {
         return true;
       };
       const args = yield* HostProcess.Arguments;
-      args.some((value) => startProviderAuthHandoff(value) || openAppLink(value));
       const openWebLink = (url: string) => {
         if (!DesktopWebLinks.isWebLink(url)) return false;
         void runPromise(webLinks.receive(url));
         return true;
       };
+      args.some(
+        (value) => startProviderAuthHandoff(value) || openWebLink(value) || openAppLink(value),
+      );
       handleOpenUrl = (url) =>
         startProviderAuthHandoff(url) ||
         resumeProviderAuth(url) ||
@@ -231,7 +233,10 @@ export const make = Effect.gen(function* () {
         if (
           argv?.some(
             (value) =>
-              startProviderAuthHandoff(value) || resumeProviderAuth(value) || openAppLink(value),
+              startProviderAuthHandoff(value) ||
+              resumeProviderAuth(value) ||
+              openWebLink(value) ||
+              openAppLink(value),
           )
         )
           return;

@@ -111,6 +111,7 @@ vi.mock("./useHandleNewThread", () => ({
   useNewThreadHandler: () => async () => recordEffect("draft"),
 }));
 vi.mock("./useSettings", () => ({
+  getClientSettings: () => ({ developerToolsEnabled: true }),
   useClientSettings: (select: (settings: unknown) => unknown) =>
     select({
       confirmThreadDelete: true,
@@ -120,6 +121,7 @@ vi.mock("./useSettings", () => ({
 }));
 vi.mock("./useThreadActions", () => ({
   canTurnThreadIntoProject: () => false,
+  canMoveThreadToProject: () => false,
   useThreadActions: () =>
     Object.fromEntries(
       [

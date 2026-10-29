@@ -4,7 +4,7 @@ import {
 } from "@t3tools/client-runtime/operations/projects";
 import { sourceControlClients } from "@t3tools/client-runtime/source-control-clients";
 import type { SourceControlProviderKind } from "@t3tools/contracts";
-import { FolderGit2Icon, LinkIcon } from "lucide-react";
+import { FolderIcon, LinkIcon } from "lucide-react";
 import { type ReactNode, useState } from "react";
 
 import { sourceControlIcon } from "~/sourceControlPresentation";
@@ -131,17 +131,14 @@ export function NewProjectSummary(props: {
     <div className="p-2 pb-0">
       <div className="flex min-h-8 items-center gap-2 rounded-sm px-2 py-1.5">
         <CommandPaletteTitleIcon>
-          <FolderGit2Icon className={ITEM_ICON_CLASS} />
+          <FolderIcon className={ITEM_ICON_CLASS} />
         </CommandPaletteTitleIcon>
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="truncate text-foreground text-sm">
             {props.name.length > 0 ? props.name : "New project"}
           </span>
           <span className="truncate text-muted-foreground/85 text-xs">
-            {props.name.length > 0
-              ? `Creates ${props.pathPreview}`
-              : `Goes in ${props.projectsRoot}`}
-            {props.environmentLabel === null ? null : ` on ${props.environmentLabel}`}
+            Organize related chats, research, and work.
           </span>
         </span>
       </div>

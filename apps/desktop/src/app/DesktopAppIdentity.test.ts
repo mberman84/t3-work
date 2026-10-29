@@ -154,7 +154,7 @@ describe("DesktopAppIdentity", () => {
         const identity = yield* DesktopAppIdentity.DesktopAppIdentity;
         const userDataPath = yield* identity.resolveUserDataPath;
 
-        assert.equal(userDataPath, "/Users/alice/.t3/userdata/electron");
+        assert.equal(userDataPath, "/Users/alice/.t3work/userdata/electron");
       }),
       { legacyPathExists: true },
     ),
@@ -164,7 +164,7 @@ describe("DesktopAppIdentity", () => {
     withIdentity(
       Effect.gen(function* () {
         const identity = yield* DesktopAppIdentity.DesktopAppIdentity;
-        assert.equal(yield* identity.resolveUserDataPath, "/Users/alice/.t3/dev/electron");
+        assert.equal(yield* identity.resolveUserDataPath, "/Users/alice/.t3work/dev/electron");
       }),
       {
         legacyPathExists: true,
@@ -197,9 +197,9 @@ describe("DesktopAppIdentity", () => {
 
         const runtimeName = calls.setName[0];
         assert.isDefined(runtimeName);
-        assert.equal(runtimeName, `T3 Code ${stage}`);
+        assert.equal(runtimeName, `T3Work ${stage}`);
         assert.match(runtimeName.replaceAll(" ", ""), /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/);
-        assert.equal(calls.setAboutPanelOptions[0]?.applicationName, `T3 Code (${stage})`);
+        assert.equal(calls.setAboutPanelOptions[0]?.applicationName, "T3Work");
       }),
       { calls, environment },
     );

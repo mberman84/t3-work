@@ -50,7 +50,9 @@ export function useOpenChangeRequestLink(
 ) => boolean {
   const navigate = useNavigate();
   const primaryEnvironmentId = usePrimaryEnvironmentId();
-  const openInApp = useClientSettings((settings) => settings.pullRequestLinksOpenInApp);
+  const openInApp = useClientSettings(
+    (settings) => settings.developerToolsEnabled && settings.pullRequestLinksOpenInApp,
+  );
   return (event, targetUrl, targetThreadRef, targetEnvironmentId) => {
     if (!openInApp || shouldOpenPullRequestExternally(event)) return false;
     // Read at click time: every provider status push replaces the config map, and

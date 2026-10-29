@@ -16,7 +16,7 @@ import { runtimeModeConfig, runtimeModeOptions } from "./runtimeModeConfig";
 
 const options = runtimeModeOptions.map((mode) => ({ mode, ...runtimeModeConfig[mode] }));
 
-// Mirrors the effort menu: effort radio items first, then the Permissions section.
+// Exercises permission navigation beside other menu items.
 function EffortMenu() {
   const [effort, setEffort] = useState("high");
   const [mode, setMode] = useState<RuntimeMode>("full-access");
@@ -118,34 +118,34 @@ it("opens on the checked permission when composer.mode marked the trigger", asyn
   await expect.element(page.getByRole("menuitemradio", { name: "Full access" })).not.toHaveFocus();
 });
 
-// Mirrors ComposerControlsBar: the chip shows only while the mode differs from the default.
 function PermissionsChip() {
   const [mode, setMode] = useState<RuntimeMode>("approval-required");
   return (
     <div data-slot="composer-shell">
-      <button type="button" data-composer-shortcut="composer.effort composer.mode">
+      <button type="button" data-composer-shortcut="composer.effort">
         Effort
       </button>
-      {mode === "full-access" ? null : (
-        <ComposerFooterModeControls
-          showInteractionModeToggle={false}
-          interactionMode="default"
-          runtimeMode={mode}
-          runtimeModeOptions={options}
-          accessDisplay="label"
-          onToggleInteractionMode={() => {}}
-          onRuntimeModeChange={setMode}
-        />
-      )}
+      <ComposerFooterModeControls
+        showInteractionModeToggle={false}
+        interactionMode="default"
+        runtimeMode={mode}
+        runtimeModeOptions={options}
+        accessDisplay="label"
+        onToggleInteractionMode={() => {}}
+        onRuntimeModeChange={setMode}
+      />
     </div>
   );
 }
 
-it("returns focus to the editor when picking the default hides the chip", async () => {
+it("keeps the permission control and returns focus to the editor after a pick", async () => {
   const { handle, ui } = withComposer(<PermissionsChip />);
   await using screen = await render(ui, { router: false }); // no routes involved
   await userEvent.click(screen.getByRole("button", { name: "Permissions: Supervised" }));
   await userEvent.click(page.getByRole("menuitemradio", { name: "Full access" }));
   await vi.waitFor(() => expect(handle.focusAtEnd).toHaveBeenCalled());
+  await expect
+    .element(screen.getByRole("button", { name: "Permissions: Full access" }))
+    .toBeVisible();
   await expect.element(screen.getByRole("button", { name: "Effort" })).not.toHaveFocus();
 });

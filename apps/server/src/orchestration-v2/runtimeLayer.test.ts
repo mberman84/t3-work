@@ -5903,6 +5903,24 @@ it.layer(layerScratchPromotionTest)("turning a No project thread into a project"
       const saved = (yield* tasks.list()).tasks.find((candidate) => candidate.id === task.id);
       assert.equal(saved?.projectId, projectId);
       assert.deepEqual(yield* promotion.promote({ threadId }), { projectId });
+      const collectionId = ProjectId.make("promotion-research-collection");
+      yield* projects.create({
+        commandId: CommandId.make("promotion-research-create"),
+        projectId: collectionId,
+        title: "Research",
+        workspaceRoot: "/private/research",
+      });
+      yield* promotion.promote({ threadId: siblingId, targetProjectId: collectionId });
+      assert.equal((yield* shellOf(siblingId))?.projectId, collectionId);
+      assert.equal((yield* shellOf(siblingId))?.worktreePath, folder);
+      assert.equal((yield* shellOf(threadId))?.projectId, projectId);
+      assert.equal(
+        (yield* tasks.list()).tasks.find((candidate) => candidate.id === task.id)?.projectId,
+        collectionId,
+      );
+      yield* promotion.promote({ threadId: siblingId, targetProjectId: SCRATCH_PROJECT_ID });
+      assert.equal((yield* shellOf(siblingId))?.projectId, SCRATCH_PROJECT_ID);
+      assert.equal((yield* shellOf(siblingId))?.worktreePath, folder);
     }),
   );
 

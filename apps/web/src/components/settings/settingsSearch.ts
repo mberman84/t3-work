@@ -137,7 +137,7 @@ export const SETTINGS_NAV_GROUPS: ReadonlyArray<{
     ],
   },
   {
-    heading: "Code",
+    heading: "Projects",
     paths: ["/settings/projects", "/settings/source-control", "/settings/worktrees"],
   },
   {
@@ -216,6 +216,13 @@ const SOURCE_CONTROL_HOST_TERMS = sourceControlClients.definitions
   .join(" ");
 
 export const SETTINGS_SEARCH_ITEMS = [
+  {
+    id: "developer-tools",
+    title: "Developer tools",
+    to: "/settings/general",
+    targetId: "developer-tools",
+    searchTerms: ["developer", "git", "worktrees", "coding"],
+  },
   {
     id: "storage-worktree-keep-when",
     targetId: "storage-worktrees",
@@ -864,6 +871,20 @@ export const SETTINGS_SEARCH_ITEMS = [
     title: "Browser profiles",
     to: "/settings/browser",
     targetId: "browser",
+  },
+  {
+    id: "live-chrome",
+    title: "Chrome live (optional)",
+    to: "/settings/browser",
+    targetId: "live-chrome",
+    searchTerms: ["chrome profile cookies signed in login sessions browser connect"],
+  },
+  {
+    id: "system-default-browser",
+    title: "Use T3Work as your default browser",
+    to: "/settings/browser",
+    desktopOnly: true,
+    searchTerms: ["daily main browser windows default apps http https links"],
   },
   {
     id: "browser-default-profile",

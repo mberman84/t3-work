@@ -1,3 +1,4 @@
+import { useDeveloperToolsEnabled } from "~/hooks/useDeveloperTools";
 import { scopeProjectRef } from "@t3tools/client-runtime/environment";
 import { EnvironmentId, ProjectId, type ScopedThreadRef } from "@t3tools/contracts";
 
@@ -43,7 +44,8 @@ export function useOpenPanelPullRequestUrl(threadRef: ScopedThreadRef | null) {
   const surface = useRightPanelStore((state) =>
     selectActiveRightPanelSurface(state.byThreadKey, threadRef),
   );
-  const requestedReference = surface?.kind === "pull-request" ? surface : null;
+  const developerTools = useDeveloperToolsEnabled();
+  const requestedReference = developerTools && surface?.kind === "pull-request" ? surface : null;
   const environmentId = requestedReference?.environmentId
     ? EnvironmentId.make(requestedReference.environmentId)
     : threadRef?.environmentId;

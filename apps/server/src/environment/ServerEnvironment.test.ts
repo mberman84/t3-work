@@ -87,7 +87,13 @@ it.layer(NodeServices.layer)("ServerEnvironmentLive", (it) => {
         `${prefix}/lib/node_modules/t3/package.json`,
         '{"name":"t3","version":"0.0.45","bin":{"t3":"./dist/bin.mjs"}}',
       );
-      yield* fs.symlink(entry, `${prefix}/bin/t3`);
+      // Model the Linux global-bin link without requiring Windows symlink privileges.
+      const posix = (value: string) => value.replaceAll("\\", "/");
+      const installationFs = {
+        ...fs,
+        realPath: (value: string) =>
+          Effect.succeed(posix(value) === posix(`${prefix}/bin/t3`) ? posix(entry) : posix(value)),
+      };
       const config = yield* makeServerConfig(baseDir);
       yield* fs.makeDirectory(config.stateDir, { recursive: true });
       for (const mode of ["web", "desktop"] as const) {
@@ -105,9 +111,10 @@ it.layer(NodeServices.layer)("ServerEnvironmentLive", (it) => {
           Effect.provideService(HostProcess.IsExecutable, false),
           Effect.provideService(HostProcess.Platform, "linux"),
           Effect.provideService(HostProcess.Environment, {}),
+          Effect.provideService(FileSystem.FileSystem, installationFs),
         );
         expect(descriptor.capabilities.serverInstallation).toEqual(
-          mode === "web" ? { kind: "npm-global", prefix } : undefined,
+          mode === "web" ? { kind: "npm-global", prefix: posix(prefix) } : undefined,
         );
         expect(descriptor.capabilities.serverSelfUpdate).toBe(
           mode === "web" ? undefined : "desktop-managed",

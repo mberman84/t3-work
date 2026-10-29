@@ -1,3 +1,6 @@
+import { useDeveloperToolsEnabled } from "~/hooks/useDeveloperTools";
+import { isDeveloperSettingsPath } from "~/developerTools";
+import { DeveloperToolsGate } from "~/components/DeveloperToolsGate";
 import { workspaceAreaProps } from "../lib/workspaceFocus";
 import { Outlet, createFileRoute, redirect, useLocation } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
@@ -107,6 +110,7 @@ function SettingsScopeBoundary({ pathname, children }: { pathname: string; child
 }
 
 function SettingsContentLayout() {
+  const developerTools = useDeveloperToolsEnabled();
   const contentArea = workspaceAreaProps("settings", 1, "Settings content");
   const location = useLocation();
   const { search, environment } = useSettingsScope();
@@ -134,7 +138,13 @@ function SettingsContentLayout() {
           </header>
           <div key={`${contentScopeKey}:${restoreSignal}`} className="min-h-0 flex flex-1 flex-col">
             <SettingsScopeBoundary pathname={location.pathname}>
-              <Outlet />
+              {!developerTools && isDeveloperSettingsPath(location.pathname) ? (
+                <DeveloperToolsGate>
+                  <Outlet />
+                </DeveloperToolsGate>
+              ) : (
+                <Outlet />
+              )}
             </SettingsScopeBoundary>
           </div>
         </div>

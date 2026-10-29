@@ -1,3 +1,4 @@
+import { useDeveloperToolsEnabled } from "~/hooks/useDeveloperTools";
 import { ThreadDetailsControl } from "./ThreadDetailsControl";
 import {
   AuthOrchestrationOperateScope,
@@ -226,6 +227,7 @@ export const OpenInPicker = memo(function OpenInPicker({
   displayMode?: "toolbar" | "panel";
   revealFileManager?: boolean;
 }) {
+  const developerTools = useDeveloperToolsEnabled();
   const isPanel = displayMode === "panel";
   const ActionGroup = isPanel ? "div" : Group;
   const panelAnchorRef = useRef<HTMLDivElement | null>(null);
@@ -329,6 +331,7 @@ export const OpenInPicker = memo(function OpenInPicker({
     </>
   );
   if (presentation === "menu") {
+    if (!developerTools) return null;
     return (
       <>
         {primaryOption && (
@@ -356,6 +359,7 @@ export const OpenInPicker = memo(function OpenInPicker({
     );
   }
 
+  if (!developerTools) return null;
   return (
     <ActionGroup
       aria-label="Open in editor"

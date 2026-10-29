@@ -1,3 +1,4 @@
+import { useDeveloperToolsEnabled } from "~/hooks/useDeveloperTools";
 import { DeviceHostUpdates } from "../device/DeviceHostUpdates";
 import { DeviceToolVersions } from "../device/DeviceToolVersions";
 import { useScopedSettings, useUpdateScopedSettings } from "./useScopedSettings";
@@ -28,9 +29,9 @@ import {
   PREVIEW_VIEWPORT_MAX_DIMENSION,
   PREVIEW_VIEWPORT_MIN_DIMENSION,
   PREVIEW_ZOOM_LEVELS,
-  findBrowserProfile,
   isBuiltInBrowserProfileId,
   resolveBrowserProfiles,
+  resolveDefaultBrowserProfileId,
   type BrowserImportSource,
   type PreviewAppearancePreference,
   type PreviewViewportSetting,
@@ -625,7 +626,7 @@ function BrowserRecordingFrameRateSetting({ disabled }: { readonly disabled: boo
 
 const LINK_TARGET_LABELS: Readonly<Record<BrowserLinkTarget, string>> = {
   system: "Your default browser",
-  app: "T3 Code",
+  app: "T3Work",
 };
 
 function BrowserLinkTargetSetting({ disabled }: { readonly disabled: boolean }) {
@@ -756,9 +757,11 @@ function BrowserSearchEngineSetting() {
 }
 
 export function PullRequestLinksOpenInAppSetting() {
+  const developerTools = useDeveloperToolsEnabled();
   const openInApp = useClientSettings((settings) => settings.pullRequestLinksOpenInApp);
   const updateSettings = useUpdatePrimarySettings();
 
+  if (!developerTools) return null;
   return (
     <SettingsRow
       {...searchableSetting("pull-request-links-open-in-app")}
@@ -1128,9 +1131,8 @@ function BrowserProfilesSetting({ disabled }: { readonly disabled: boolean }) {
   const profileWritesDisabled = disabled || !settingsHydrated;
 
   const profiles = resolveBrowserProfiles(userProfiles);
-  const listedProfiles = profiles.filter((profile) => profile.kind !== "incognito");
-  const resolvedDefaultId =
-    findBrowserProfile(listedProfiles, defaultProfileId)?.id ?? DEFAULT_BROWSER_PROFILE_ID;
+  const listedProfiles = profiles.filter((profile) => profile.kind === "persistent");
+  const resolvedDefaultId = resolveDefaultBrowserProfileId(profiles, defaultProfileId);
 
   const createProfile = (baseName: string) => {
     if (!settingsHydrated || importInFlightRef.current) return undefined;
@@ -1270,7 +1272,7 @@ function BrowserProfilesSetting({ disabled }: { readonly disabled: boolean }) {
   return (
     <SettingsRow
       {...searchableSetting("browser-profiles")}
-      description="Profiles separate cookies and logins. Incognito data is cleared when the app closes."
+      description="T3Work keeps your cookies and logins between visits. Import logins from a supported browser, or add a separate profile for work or personal browsing."
       control={
         <Menu onOpenChange={(open) => open && loadSources()}>
           <MenuTrigger
@@ -1283,7 +1285,7 @@ function BrowserProfilesSetting({ disabled }: { readonly disabled: boolean }) {
             }
           >
             <PlusIcon />
-            Add profile
+            Import logins / add profile
           </MenuTrigger>
           <MenuPopup align="end">
             <MenuItem
@@ -1399,7 +1401,7 @@ function BrowserProfilesSetting({ disabled }: { readonly disabled: boolean }) {
                     Set as default
                   </MenuItem>
                   <MenuItem
-                    disabled={!settingsHydrated || !removalAvailable}
+                    disabled={!settingsHydrated || !removalAvailable || profile.kind === "external"}
                     onClick={() => {
                       if (serverProfileData.environmentIds.length > 0) {
                         setProfilePendingClear(profile);
@@ -1517,7 +1519,9 @@ function BrowserProfilesSetting({ disabled }: { readonly disabled: boolean }) {
         <BrowserImportWizard
           source={importSession.source}
           destinationEnvironmentName={importSession.environmentName}
-          targetProfiles={listedProfiles.map((profile) => ({ id: profile.id, name: profile.name }))}
+          targetProfiles={listedProfiles
+            .filter((profile) => profile.kind !== "external")
+            .map((profile) => ({ id: profile.id, name: profile.name }))}
           canCreateProfile={settingsHydrated && !atProfileLimit}
           onImport={(input) =>
             runWizardImport(importSession.source, importSession.environmentId, input)
@@ -1552,10 +1556,8 @@ export function BrowserSettingsPanel() {
 
   return (
     <SettingsPageContainer>
-      <SettingsSection id="browser-agent-access" title="Agent access">
-        <AgentBrowserAccessSetting />
-      </SettingsSection>
-      <SettingsSection id="browser" title="Browsing">
+      <SettingsSection id="browser" title="T3Work browser">
+        {isElectron ? <DefaultBrowserSetting /> : null}
         <SettingsUnavailableGroup message={desktopOnlyMessage}>
           <BrowserProfilesSetting disabled={desktopOnly} />
           <BrowserLinkTargetSetting disabled={desktopOnly} />
@@ -1577,6 +1579,10 @@ export function BrowserSettingsPanel() {
           </SettingsUnavailableGroup>
         </AdvancedSettings>
       </SettingsSection>
+      <SettingsSection id="browser-agent-access" title="Agent access">
+        <AgentBrowserAccessSetting />
+      </SettingsSection>
+      {isElectron ? <LiveChromeSetting /> : null}
       <SettingsSection id="browser-recordings" title="Recordings">
         <SettingsUnavailableGroup message={desktopOnlyMessage}>
           <BrowserRecordingFrameRateSetting disabled={desktopOnly} />
@@ -1584,6 +1590,67 @@ export function BrowserSettingsPanel() {
         </SettingsUnavailableGroup>
       </SettingsSection>
     </SettingsPageContainer>
+  );
+}
+
+function DefaultBrowserSetting() {
+  const updateSettings = useUpdatePrimarySettings();
+  const platform = window.desktopBridge?.getClientPlatform();
+  const [opening, setOpening] = useState(false);
+  if (platform !== "win32" && platform !== "darwin") return null;
+
+  const openSettings = async () => {
+    setOpening(true);
+    try {
+      if (!(await window.desktopBridge?.openSystemSettings("default-browser"))) {
+        toastManager.add({ type: "error", title: "Could not open default browser settings" });
+      } else {
+        updateSettings({ browserLinkTarget: "app" });
+      }
+    } catch {
+      toastManager.add({ type: "error", title: "Could not open default browser settings" });
+    } finally {
+      setOpening(false);
+    }
+  };
+
+  return (
+    <SettingsRow
+      {...searchableSetting("system-default-browser")}
+      description={
+        platform === "win32"
+          ? "Open web links from other apps in T3Work. In Windows Settings, choose T3Work and select Set default."
+          : "Open web links from other apps in T3Work. Choose T3Work as your default web browser in System Settings."
+      }
+      control={
+        <Button size="sm" variant="outline" disabled={opening} onClick={() => void openSettings()}>
+          Make default
+        </Button>
+      }
+    />
+  );
+}
+
+function LiveChromeSetting() {
+  return (
+    <SettingsSection id="live-chrome" title="Chrome live (optional)">
+      <SettingsRow
+        title="Use your signed-in Chrome for a tab"
+        description="T3Work uses its own browser by default. When you need an existing Chrome login, choose New tab in signed-in Chrome from the browser menu, or select Chrome (live) from the new-tab profile menu."
+      >
+        <div className="space-y-2 text-sm text-muted-foreground">
+          <p>
+            In Chrome 144 or later, open <code>chrome://inspect/#remote-debugging</code> and enable
+            remote debugging. Then open a Chrome (live) tab here and approve Chrome’s connection
+            prompt. Keep Chrome running while using that tab.
+          </p>
+          <p>
+            Chrome keeps its own cookies and sign-ins. Agents with browser access can use the Chrome
+            (live) profile too. Disable remote debugging in Chrome to revoke access.
+          </p>
+        </div>
+      </SettingsRow>
+    </SettingsSection>
   );
 }
 

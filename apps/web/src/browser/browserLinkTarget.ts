@@ -31,7 +31,7 @@ export function isWebUrl(url: string): boolean {
   }
 }
 
-/** Before hydration, the default "system" would ignore a saved "app" link target. */
+/** Wait for hydration so a saved link-target preference is honored. */
 export async function resolveBrowserLinkTargetPreference(): Promise<BrowserLinkTarget> {
   await ensureClientSettingsHydrated();
   return getClientSettings().browserLinkTarget;

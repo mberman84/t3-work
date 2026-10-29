@@ -1,3 +1,4 @@
+import { useDeveloperToolsEnabled } from "~/hooks/useDeveloperTools";
 import { scopedThreadKey } from "@t3tools/client-runtime/environment";
 import { settlePromise } from "@t3tools/client-runtime/state/runtime";
 import { previewStreamDownloadUrl } from "@t3tools/client-runtime/preview/server-browser-stream";
@@ -77,6 +78,7 @@ import { shouldShowPreviewEmptyState } from "./previewEmptyStateLogic";
 import { Badge } from "~/components/ui/badge";
 import { BrowserSurfaceSlot } from "~/browser/BrowserSurfaceSlot";
 import { alternatePreviewRuntime, useRendersServerTabNatively } from "~/browser/previewRuntime";
+import { LIVE_CHROME_PROFILE_ID } from "@t3tools/contracts";
 import { ServerBrowserSurface, type ServerBrowserHandle } from "~/browser/ServerBrowserSurface";
 import { cn } from "~/lib/utils";
 import { useBrowserSurfaceStore } from "~/browser/browserSurfaceStore";
@@ -189,8 +191,11 @@ export function PreviewView({
   const serverSurfaceRef = useRef<ServerBrowserHandle | null>(null);
   const [serverAspectRatioLocked, setServerAspectRatioLocked] = useState(false);
   const [serverToolbarWidth, setServerToolbarWidth] = useState(0);
+  const developerTools = useDeveloperToolsEnabled();
   const serverToolbarShown =
-    snapshot?.runtime === "server" && (snapshot.viewport ?? FILL_PREVIEW_VIEWPORT)._tag !== "fill";
+    developerTools &&
+    snapshot?.runtime === "server" &&
+    (snapshot.viewport ?? FILL_PREVIEW_VIEWPORT)._tag !== "fill";
   const serverBodyRef = useRef<HTMLDivElement | null>(null);
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- ResizeObserver on the server preview body sizes the viewport toolbar
   useEffect(() => {
@@ -412,15 +417,49 @@ export function PreviewView({
   const desktopCall = (op: ((tabId: string) => Promise<void>) | undefined) => () => {
     if (op && runtimeTabId) void op(runtimeTabId).catch(() => undefined);
   };
+  const openWithProfile = async (profileId: string) => {
+    const result = await openPreviewSession({
+      openPreview: open,
+      threadRef,
+      profileId,
+      ...(url ? { url } : {}),
+    });
+    if (result._tag === "Success")
+      useRightPanelStore.getState().openBrowser(threadRef, result.value.tabId);
+    else if (!isAtomCommandInterrupted(result))
+      toastManager.add({
+        type: "error",
+        title: "Could not open browser tab",
+        description: String(squashAtomCommandFailure(result)),
+      });
+  };
+  const browserSourceActions = serverBrowser
+    ? {
+        openChromeTab: () => {
+          void openWithProfile(LIVE_CHROME_PROFILE_ID);
+        },
+        openBuiltInTab: () => {
+          void openWithProfile(DEFAULT_BROWSER_PROFILE_ID);
+        },
+        externalProfile: activeProfileId === LIVE_CHROME_PROFILE_ID,
+      }
+    : {};
   const moreMenuActions: PreviewMoreMenuActions | null = serverOwnsRendering
     ? {
+        ...browserSourceActions,
         hardReload: () => void adjustServerTab({ hardReload: true }),
         setColorScheme: (colorScheme) => void adjustServerTab({ colorScheme }),
         zoomIn: handleZoomIn,
         zoomOut: handleZoomOut,
         resetZoom: handleResetZoom,
-        clearCookies: () => void adjustServerTab({ clear: "cookies" }),
-        clearCache: () => void adjustServerTab({ clear: "cache" }),
+        clearCookies: () =>
+          activeProfileId === LIVE_CHROME_PROFILE_ID
+            ? toastManager.add({ type: "info", title: "Manage Chrome cookies in Chrome" })
+            : void adjustServerTab({ clear: "cookies" }),
+        clearCache: () =>
+          activeProfileId === LIVE_CHROME_PROFILE_ID
+            ? toastManager.add({ type: "info", title: "Manage Chrome's cache in Chrome" })
+            : void adjustServerTab({ clear: "cache" }),
         ...(nativeServerTab && previewBridge
           ? {
               openDevTools: desktopCall(previewBridge.openDevTools),
@@ -430,6 +469,7 @@ export function PreviewView({
       }
     : previewBridge
       ? {
+          ...browserSourceActions,
           hardReload: desktopCall(previewBridge.hardReload),
           setColorScheme: (colorScheme) => {
             if (runtimeTabId)
@@ -877,6 +917,7 @@ export function PreviewView({
           isUnreachable ? "Page didn't load. Pick is unavailable until the page renders" : undefined
         }
         leadingActions={
+          activeProfileId === LIVE_CHROME_PROFILE_ID ||
           activeProfileId !== browserDefaults.profileId ? (
             <Tooltip>
               <TooltipTrigger render={<Badge variant="outline" className="max-w-28 shrink-0" />}>
@@ -917,7 +958,7 @@ export function PreviewView({
       <div ref={serverBodyRef} className="relative min-h-0 flex-1 overflow-hidden">
         {runtimeTabId && snapshot && isServerTab ? (
           <>
-            {viewport._tag !== "fill" && !showEmptyState && !isUnreachable ? (
+            {developerTools && viewport._tag !== "fill" && !showEmptyState && !isUnreachable ? (
               <div className="absolute inset-x-0 top-0 z-10">
                 <BrowserDeviceToolbar
                   setting={viewport}
@@ -935,7 +976,9 @@ export function PreviewView({
             ) : null}
             <div
               className="absolute inset-x-0 bottom-0"
-              style={{ top: viewport._tag !== "fill" ? BROWSER_DEVICE_TOOLBAR_HEIGHT : 0 }}
+              style={{
+                top: developerTools && viewport._tag !== "fill" ? BROWSER_DEVICE_TOOLBAR_HEIGHT : 0,
+              }}
             >
               <ServerBrowserSurface
                 key={runtimeTabId}

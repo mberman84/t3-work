@@ -1,3 +1,4 @@
+import { useDeveloperToolsEnabled } from "~/hooks/useDeveloperTools";
 import { sourceControlClients } from "@t3tools/client-runtime/source-control-clients";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
 import { useProjects, useServerConfigs, useThreadShells } from "~/state/entities";
@@ -942,6 +943,7 @@ function RightPanelTab(
 }
 
 export function RightPanelTabs(props: RightPanelTabsProps) {
+  const developerTools = useDeveloperToolsEnabled();
   const focusedSurface = props.surfaces.find((surface) => surface.id === props.activeSurfaceId);
   const ownsDesktopTitleBar = isElectron && props.mode === "inline";
   const browserProfiles = useBrowserDefaults().profiles;
@@ -1318,56 +1320,60 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
                   sideOffset={6}
                   onKeyDownCapture={handleAddSurfaceMenuKeyDown}
                 >
-                  {addSurfaceActions.map((action) => {
-                    const Icon = action.icon;
-                    if (action.label === "Browser" && action.available) {
+                  {addSurfaceActions
+                    .filter(
+                      (action) => developerTools || ["Browser", "Files"].includes(action.label),
+                    )
+                    .map((action) => {
+                      const Icon = action.icon;
+                      if (action.label === "Browser" && action.available) {
+                        return (
+                          <MenuSub key={action.label}>
+                            <MenuSubTrigger
+                              className="[&>svg:last-child]:ms-0"
+                              aria-keyshortcuts={action.shortcut}
+                              onClick={(event) => {
+                                const pointerType =
+                                  "pointerType" in event.nativeEvent &&
+                                  typeof event.nativeEvent.pointerType === "string"
+                                    ? event.nativeEvent.pointerType
+                                    : undefined;
+                                if (!shouldOpenDefaultBrowserProfileFromMenuClick(pointerType))
+                                  return;
+                                setAddSurfaceMenuOpen(false);
+                                action.onClick();
+                              }}
+                            >
+                              <Icon />
+                              {action.label}
+                              <MenuShortcut>{action.shortcut}</MenuShortcut>
+                            </MenuSubTrigger>
+                            <MenuSubPopup className="max-w-56">
+                              {browserProfiles.map((profile) => (
+                                <MenuItem
+                                  key={profile.id}
+                                  onClick={() => props.onAddBrowserInProfile(profile.id)}
+                                >
+                                  <span className="min-w-0 truncate">{profile.name}</span>
+                                </MenuItem>
+                              ))}
+                            </MenuSubPopup>
+                          </MenuSub>
+                        );
+                      }
                       return (
-                        <MenuSub key={action.label}>
-                          <MenuSubTrigger
-                            className="[&>svg:last-child]:ms-0"
-                            aria-keyshortcuts={action.shortcut}
-                            onClick={(event) => {
-                              const pointerType =
-                                "pointerType" in event.nativeEvent &&
-                                typeof event.nativeEvent.pointerType === "string"
-                                  ? event.nativeEvent.pointerType
-                                  : undefined;
-                              if (!shouldOpenDefaultBrowserProfileFromMenuClick(pointerType))
-                                return;
-                              setAddSurfaceMenuOpen(false);
-                              action.onClick();
-                            }}
-                          >
-                            <Icon />
-                            {action.label}
-                            <MenuShortcut>{action.shortcut}</MenuShortcut>
-                          </MenuSubTrigger>
-                          <MenuSubPopup className="max-w-56">
-                            {browserProfiles.map((profile) => (
-                              <MenuItem
-                                key={profile.id}
-                                onClick={() => props.onAddBrowserInProfile(profile.id)}
-                              >
-                                <span className="min-w-0 truncate">{profile.name}</span>
-                              </MenuItem>
-                            ))}
-                          </MenuSubPopup>
-                        </MenuSub>
+                        <SurfaceMenuItem
+                          key={action.label}
+                          available={action.available}
+                          disabledReason={action.disabledReason}
+                          shortcut={action.shortcut}
+                          onClick={action.onClick}
+                        >
+                          <Icon />
+                          {action.label}
+                        </SurfaceMenuItem>
                       );
-                    }
-                    return (
-                      <SurfaceMenuItem
-                        key={action.label}
-                        available={action.available}
-                        disabledReason={action.disabledReason}
-                        shortcut={action.shortcut}
-                        onClick={action.onClick}
-                      >
-                        <Icon />
-                        {action.label}
-                      </SurfaceMenuItem>
-                    );
-                  })}
+                    })}
                 </MenuPopup>
               </Menu>
             ) : null}

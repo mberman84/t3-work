@@ -1,5 +1,6 @@
 import { assert, describe, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as HostProcess from "@t3tools/shared/HostProcess";
 import { beforeEach, vi } from "vite-plus/test";
 
 const { openExternalMock, writeTextMock } = vi.hoisted(() => ({
@@ -91,6 +92,30 @@ describe("ElectronShell", () => {
       assert.deepEqual(results, [false, false, false, false]);
       assert.equal(openExternalMock.mock.calls.length, 0);
     }).pipe(Effect.provide(ElectronShell.layer)),
+  );
+
+  it.effect.each(["win32", "darwin", "linux"] as const)(
+    "opens default browser settings or reports unavailable on %s",
+    (platform) =>
+      Effect.gen(function* () {
+        const shell = yield* ElectronShell.ElectronShell;
+        openExternalMock.mockResolvedValue(undefined);
+        const supported = platform !== "linux";
+        assert.equal(yield* shell.openSystemSettings("default-browser"), supported);
+        if (supported) {
+          assert.equal(
+            openExternalMock.mock.calls[0]?.[0],
+            platform === "win32"
+              ? "ms-settings:defaultapps?registeredAppUser=T3Work"
+              : "x-apple.systempreferences:com.apple.Desktop-Settings.extension",
+          );
+          openExternalMock.mockRejectedValue(new Error("Settings unavailable"));
+          assert.equal(yield* shell.openSystemSettings("default-browser"), false);
+        } else assert.equal(openExternalMock.mock.calls.length, 0);
+      }).pipe(
+        Effect.provide(ElectronShell.layer),
+        Effect.provideService(HostProcess.Platform, platform),
+      ),
   );
 
   it.effect("does not open unsafe external URLs", () =>

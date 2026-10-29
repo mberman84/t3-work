@@ -23,6 +23,8 @@ import { decide, readWorkspace } from "../.github/scripts/ci-changes.cjs";
 
 const root = NodePath.resolve(import.meta.dirname, "..");
 const CODE = /\.[cm]?[jt]sx?$/;
+// Run the JS entry point directly; Windows cannot spawn the vp.cmd shim without a shell.
+const vpArgs = [NodePath.join(root, "node_modules/vite-plus/bin/vp")];
 
 // quotePath=false keeps non-ASCII paths as real paths instead of quoted escapes.
 const git = (...args: Array<string>) =>
@@ -72,18 +74,12 @@ const inputKey = () => {
       { cwd: root, maxBuffer: 1024 * 1024 * 1024 },
     ),
   );
-  const ignored = git(
-    "ls-files",
-    "--others",
-    "--ignored",
-    "--exclude-standard",
-    "--",
-    ":(glob)**/.generated/**",
-    ":(glob)**/.astro/**",
-    ":(glob)**/*.d.ts",
-    ":(glob)**/.env*",
-    ":(exclude,glob)**/node_modules/**",
-  );
+  // Prune runtime folders before descending: Git's excluded pathspecs still walk Windows junctions.
+  const ignored = NodeFS.globSync(["**/.generated/**", "**/.astro/**", "**/*.d.ts", "**/.env*"], {
+    cwd: root,
+    exclude: (path) =>
+      path.split(/[\\/]/).some((segment) => ["node_modules", ".git", ".t3"].includes(segment)),
+  }).sort();
   for (const file of [
     // Raw bytes of changed files too: .gitattributes normalizes line endings in
     // the diff, but the formatter reads the file as it is on disk.
@@ -243,8 +239,8 @@ const checkPatches = (): boolean => {
       if (NodeFS.existsSync(NodePath.join(root, extra))) copy(extra);
     }
     const { status, stdout, stderr, error } = NodeChildProcess.spawnSync(
-      "vp",
-      ["install", "--lockfile-only", "--ignore-scripts"],
+      process.execPath,
+      [...vpArgs, "install", "--lockfile-only", "--ignore-scripts"],
       { cwd: temp, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
     );
     if (status === 0) return true;
@@ -276,7 +272,13 @@ const steps = [
   runPatchCheck && { name: "unused patches", run: checkPatches },
   present.length > 0 && {
     name: "format",
-    args: ["fmt", "--check", "--no-error-on-unmatched-pattern", ...present],
+    args: [
+      "fmt",
+      "--ignore-path=.gitignore",
+      "--check",
+      "--no-error-on-unmatched-pattern",
+      ...present,
+    ],
   },
   code.length > 0 && { name: "lint", args: ["lint", ...code] },
   ...(runKnip ? knipPasses : []),
@@ -321,7 +323,10 @@ const runStep = (step: (typeof steps)[number]) =>
     // takes about a second, so the commands start right after it.
     if ("run" in step) return finish(step.run());
     const output: Array<Buffer> = [];
-    const child = NodeChildProcess.spawn("vp", step.args, { cwd: root, env });
+    const child = NodeChildProcess.spawn(process.execPath, [...vpArgs, ...step.args], {
+      cwd: root,
+      env,
+    });
     child.stdout.on("data", (chunk: Buffer) => output.push(chunk));
     child.stderr.on("data", (chunk: Buffer) => output.push(chunk));
     // A failed spawn emits "error", then "close" with a nonzero code.

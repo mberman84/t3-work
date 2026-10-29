@@ -1,6 +1,11 @@
 import type { EnvironmentServerConfig } from "@t3tools/client-runtime/connection";
 import { runAtomCommand } from "@t3tools/client-runtime/state/runtime";
-import { AuthPreviewOperateScope, type EnvironmentId } from "@t3tools/contracts";
+import {
+  AuthPreviewOperateScope,
+  resolveBrowserProfiles,
+  resolveDefaultBrowserProfileId,
+  type EnvironmentId,
+} from "@t3tools/contracts";
 import type { ClientSettings } from "@t3tools/contracts/settings";
 import { Atom } from "effect/reactivity";
 
@@ -45,7 +50,10 @@ export function startBrowserProfileReporting(): () => void {
     const settings = getClientSettings();
     const input: ProfileReport = {
       profiles: settings.browserProfiles,
-      defaultProfileId: settings.browserDefaultProfileId,
+      defaultProfileId: resolveDefaultBrowserProfileId(
+        resolveBrowserProfiles(settings.browserProfiles),
+        settings.browserDefaultProfileId,
+      ),
       recordingFrameRate: settings.browserRecordingFrameRate,
     };
     const targets = appAtomRegistry.get(reportTargetsAtom);

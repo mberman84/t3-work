@@ -1,3 +1,4 @@
+import { useDeveloperToolsEnabled } from "~/hooks/useDeveloperTools";
 import { ThreadHoverCard, ThreadHoverCardPopup } from "../ThreadHoverCard";
 import { ThreadTerminalStatusButton } from "../ThreadStatusIndicators";
 import { discardComposerDraft } from "../../lib/discardComposerDraft";
@@ -91,7 +92,6 @@ import { resolveLocalCheckoutBranchMismatch } from "../BranchToolbar.logic";
 import {
   ThreadPullRequestBadgeControl,
   ThreadPullRequestsMiniList,
-  ThreadWorktreeIndicator,
   prStatusIndicator,
   resolveThreadPullRequestBadge,
   terminalStatusFromRunningIds,
@@ -258,6 +258,7 @@ function SidebarThreadTooltip({
   terminalStatus: TerminalStatusIndicator | null;
   terminalProcessCount: number;
 }) {
+  const developerTools = useDeveloperToolsEnabled();
   const driverKind = providerEntry?.driverKind ?? null;
   const previousProviderNames = thread.providerInstanceHistory
     .filter((instanceId) => instanceId !== modelInstanceId)
@@ -268,7 +269,7 @@ function SidebarThreadTooltip({
       <ThreadHoverCard
         title={thread.title}
         footer={
-          supportsMultiplePullRequests && thread.pullRequests.length > 0 ? (
+          developerTools && supportsMultiplePullRequests && thread.pullRequests.length > 0 ? (
             <div className="border-t border-border/60 pt-2 pl-0.5 text-xs text-muted-foreground">
               <ThreadPullRequestsMiniList pullRequests={thread.pullRequests} />
             </div>
@@ -290,13 +291,13 @@ function SidebarThreadTooltip({
             <div className="min-w-0 truncate text-foreground/75">{environmentLabel}</div>
           </div>
         ) : null}
-        {thread.branch ? (
+        {developerTools && thread.branch ? (
           <div className="flex min-w-0 items-center gap-2">
             <GitBranchIcon className="size-3 shrink-0 stroke-muted-foreground" />
             <MiddleTruncate value={thread.branch} className="flex" />
           </div>
         ) : null}
-        {branchMismatch ? (
+        {developerTools && branchMismatch ? (
           <div className="flex min-w-0 items-start gap-2 text-warning">
             <CircleAlertIcon aria-hidden className="mt-0.5 size-3 shrink-0 stroke-current" />
             <div className="min-w-0 flex-1 wrap-break-word">
@@ -334,7 +335,7 @@ function SidebarThreadTooltip({
             </div>
           </div>
         ) : null}
-        {terminalStatus ? (
+        {developerTools && terminalStatus ? (
           <div className="flex min-w-0 items-center gap-2">
             <TerminalIcon
               aria-hidden
@@ -629,6 +630,7 @@ function ThreadRenameInput(props: {
 }
 
 const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowProps) {
+  const developerTools = useDeveloperToolsEnabled();
   const {
     isRenaming,
     onCancelRename,
@@ -1050,19 +1052,20 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
     useRightPanelStore.getState().open(threadRef, "pull-requests");
     if (!props.isRouteThread) onThreadActivate(threadRef);
   };
-  const prBadge =
-    prBadgeShape?.kind === "stack" || pr || currentLinkedPr ? (
-      <ThreadPullRequestBadgeControl
-        render={<InlineButton />}
-        badge={prBadgeShape}
-        pullRequests={thread.pullRequests}
-        number={pr?.number ?? currentLinkedPr?.number}
-        url={pr?.url ?? currentLinkedPr?.url}
-        status={prStatus}
-        onOpenList={handlePrListClick}
-        onOpenPullRequest={handlePrClick}
-      />
-    ) : null;
+  const prBadge = !developerTools ? null : prBadgeShape?.kind === "stack" ||
+    pr ||
+    currentLinkedPr ? (
+    <ThreadPullRequestBadgeControl
+      render={<InlineButton />}
+      badge={prBadgeShape}
+      pullRequests={thread.pullRequests}
+      number={pr?.number ?? currentLinkedPr?.number}
+      url={pr?.url ?? currentLinkedPr?.url}
+      status={prStatus}
+      onOpenList={handlePrListClick}
+      onOpenPullRequest={handlePrClick}
+    />
+  ) : null;
   const terminalStatusIcon = (
     <ThreadTerminalStatusButton
       threadRef={threadRef}
@@ -1122,25 +1125,17 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
     )
   ) : null;
 
-  const diff = latestRunDiff(thread);
+  const diff = developerTools ? latestRunDiff(thread) : null;
   // Only the provider icon would remain, so the row drops the line instead of leaving it blank.
   const metaLineEmpty =
-    !thread.branch &&
     !showsScratchMachine &&
     prBadge === null &&
     diff === null &&
     !isRemote &&
-    runningTerminalIds.length === 0;
+    (!developerTools || runningTerminalIds.length === 0);
   const metaLine = metaLineEmpty ? null : (
     <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-secondary-label text-xs">
-      {thread.branch ? (
-        <>
-          <ThreadWorktreeIndicator thread={thread} />
-          <span className="flex min-w-0 flex-1">
-            <MiddleTruncate value={thread.branch} showTitle={false} />
-          </span>
-        </>
-      ) : showsScratchMachine ? (
+      {showsScratchMachine ? (
         <>
           <EnvironmentMachineIcon
             aria-hidden
@@ -1152,7 +1147,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
       ) : (
         <span className="flex-1" />
       )}
-      {terminalStatusIcon}
+      {developerTools ? terminalStatusIcon : null}
       {prBadge}
       {diff ? (
         <span className="shrink-0 font-mono">

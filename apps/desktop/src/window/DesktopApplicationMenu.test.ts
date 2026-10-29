@@ -1,3 +1,5 @@
+import { DEFAULT_CLIENT_SETTINGS } from "@t3tools/contracts";
+import * as Option from "effect/Option";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, describe, it } from "@effect/vitest";
 import * as Deferred from "effect/Deferred";
@@ -14,6 +16,7 @@ import * as DesktopConfig from "../app/DesktopConfig.ts";
 import * as DesktopEnvironment from "../app/DesktopEnvironment.ts";
 import * as DesktopUpdates from "../updates/DesktopUpdates.ts";
 import * as DesktopWindow from "./DesktopWindow.ts";
+import * as DesktopClientSettings from "../settings/DesktopClientSettings.ts";
 
 const environmentInput = {
   dirname: "/repo/apps/desktop/dist-electron",
@@ -107,6 +110,7 @@ const configureMenu = (
   selectedAction: Deferred.Deferred<string>,
   applicationMenuTemplate: Deferred.Deferred<readonly Electron.MenuItemConstructorOptions[]>,
   environment: Partial<DesktopEnvironment.MakeDesktopEnvironmentInput> = {},
+  developerToolsEnabled = false,
 ) =>
   Effect.gen(function* () {
     const menu = yield* DesktopApplicationMenu.DesktopApplicationMenu;
@@ -114,6 +118,13 @@ const configureMenu = (
   }).pipe(
     Effect.provide(
       DesktopApplicationMenu.layer.pipe(
+        Layer.provideMerge(
+          DesktopClientSettings.layerTest(
+            developerToolsEnabled
+              ? Option.some({ ...DEFAULT_CLIENT_SETTINGS, developerToolsEnabled })
+              : Option.none(),
+          ),
+        ),
         Layer.provideMerge(layerElectronMenu(applicationMenuTemplate)),
         Layer.provideMerge(layerDesktopWindow(selectedAction)),
         Layer.provideMerge(layerDesktopUpdates),
@@ -129,6 +140,26 @@ const configureMenu = (
   );
 
 describe("DesktopApplicationMenu", () => {
+  it.effect("gates the native developer menu and accelerator on the saved preference", () =>
+    Effect.gen(function* () {
+      for (const enabled of [false, true]) {
+        const templateReady =
+          yield* Deferred.make<readonly Electron.MenuItemConstructorOptions[]>();
+        yield* configureMenu(
+          yield* Deferred.make<string>(),
+          templateReady,
+          { platform: "win32" },
+          enabled,
+        );
+        const template = yield* Deferred.await(templateReady);
+        const view = template.find((item) => item.label === "View");
+        if (!Array.isArray(view?.submenu)) throw new Error("Expected View menu");
+        const developerItem = view.submenu.find((item) => item.label === "Toggle Developer Tools");
+        assert.equal(developerItem?.visible, enabled);
+        assert.equal(developerItem?.enabled, enabled);
+      }
+    }),
+  );
   it.effect("leaves the accelerator to Chromium instead of injecting a paste", () =>
     Effect.gen(function* () {
       const selectedAction = yield* Deferred.make<string>();

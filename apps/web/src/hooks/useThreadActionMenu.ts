@@ -1,3 +1,4 @@
+import { developerToolsEnabled } from "~/hooks/useDeveloperTools";
 import { scopeProjectRef } from "@t3tools/client-runtime/environment";
 import { requestCustomSnooze } from "../components/CustomSnoozeDialog";
 import { openGuestShareDialog } from "../components/chat/guestShareDialogState";
@@ -12,6 +13,7 @@ import {
   AuthOrchestrationOperateScope,
   type ScopedThreadRef,
   type ThreadId,
+  ProjectId,
 } from "@t3tools/contracts";
 import { useRouter } from "@tanstack/react-router";
 
@@ -45,7 +47,11 @@ import { threadRuntimeCanArchive } from "@t3tools/client-runtime/state/models";
 import { useCopyToClipboard } from "./useCopyToClipboard";
 import { useNewThreadHandler } from "./useHandleNewThread";
 import { useClientSettings } from "./useSettings";
-import { canTurnThreadIntoProject, useThreadActions } from "./useThreadActions";
+import {
+  canMoveThreadToProject,
+  canTurnThreadIntoProject,
+  useThreadActions,
+} from "./useThreadActions";
 
 function failureToast(title: string, error: unknown) {
   toastManager.add(
@@ -86,6 +92,7 @@ export function useThreadActionMenu(input: {
     deleteThread,
     markThreadUnread,
     turnThreadIntoProject,
+    moveThreadToProject,
   } = useThreadActions();
   const updateThreadMetadata = useOrchestrationCommand(threadEnvironment.updateMetadata, {
     reportFailure: false,
@@ -133,6 +140,7 @@ export function useThreadActionMenu(input: {
       const isRegeneratingTitle = thread.titleRegeneration != null;
       const snoozePresets = resolveSnoozePresets(now, timestampFormat, threadRef.environmentId);
       const items = buildThreadActionMenuItems({
+        developerToolsEnabled: developerToolsEnabled(),
         canOperate: readEnvironmentScope(threadRef.environmentId, AuthOrchestrationOperateScope),
         canFind: onFind !== undefined,
         branch: thread.branch ?? null,
@@ -148,6 +156,18 @@ export function useThreadActionMenu(input: {
         snoozePresets,
         canShareWithGuest,
         canTurnIntoProject: canTurnThreadIntoProject(threadRef),
+        ...(canMoveThreadToProject(threadRef)
+          ? {
+              moveProjects: projects
+                .filter(
+                  (project) =>
+                    project.environmentId === threadRef.environmentId &&
+                    project.id !== thread.projectId &&
+                    project.title !== "No project",
+                )
+                .map((project) => ({ id: project.id, label: project.title })),
+            }
+          : {}),
       });
       const clicked = await settlePromise(() => api.contextMenu.show(items, position));
       if (clicked._tag === "Failure" || clicked.value === null) return;
@@ -188,6 +208,21 @@ export function useThreadActionMenu(input: {
           failureToast(title, squashAtomCommandFailure(result));
         }
       };
+      if (action.startsWith("move-project:")) {
+        const id = action.slice("move-project:".length);
+        const result = await moveThreadToProject(
+          threadRef,
+          id === "none" ? null : ProjectId.make(id),
+        );
+        if (result._tag === "Failure" && !isAtomCommandInterrupted(result))
+          failureToast("Could not move chat", squashAtomCommandFailure(result));
+        else if (result._tag === "Success")
+          toastManager.add({
+            type: "success",
+            title: id === "none" ? "Moved out of project" : "Chat moved to project",
+          });
+        return;
+      }
       switch (action) {
         case "find":
           onFind?.(threadRef);

@@ -1,3 +1,4 @@
+import { developerToolsEnabled } from "~/hooks/useDeveloperTools";
 import { attachSidebarTree, SIDEBAR_TREE_PROPS } from "../lib/sidebarTree";
 import { type EnvironmentId, type ScopedProjectRef } from "@t3tools/contracts";
 import type { EnvironmentServerConfig } from "@t3tools/client-runtime/connection";
@@ -116,6 +117,7 @@ import {
   useThreadSelectionStore,
 } from "../threadSelectionStore";
 import {
+  canMoveThreadToProject,
   canTurnThreadIntoProject,
   useAcknowledgeThreadWoke,
   useThreadActions,
@@ -902,6 +904,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
     confirmAndUnpinThread,
     setThreadAutoSettle,
     turnThreadIntoProject,
+    moveThreadToProject,
     reorderPinnedThread,
     reorderActiveThread,
     markThreadUnread,
@@ -2468,6 +2471,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
         const clicked = await settlePromise(() =>
           api.contextMenu.show(
             buildDraftActionMenuItems({
+              developerToolsEnabled: developerToolsEnabled(),
               hasPath: Boolean(workspacePath),
               hasBranch: Boolean(session.branch),
               hasProject: projectGroup != null,
@@ -2542,6 +2546,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
         const clicked = await settlePromise(() =>
           api.contextMenu.show(
             buildThreadActionMenuItems({
+              developerToolsEnabled: developerToolsEnabled(),
               canOperate: readEnvironmentScope(
                 threadRef.environmentId,
                 AuthOrchestrationOperateScope,
@@ -2564,6 +2569,18 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                 canShareWithGuestAtom(threadRef.environmentId),
               ),
               canTurnIntoProject: canTurnThreadIntoProject(threadRef),
+              ...(canMoveThreadToProject(threadRef)
+                ? {
+                    moveProjects: [...projectByKey.values()]
+                      .filter(
+                        (project) =>
+                          project.environmentId === thread.environmentId &&
+                          project.id !== thread.projectId &&
+                          project.title !== "No project",
+                      )
+                      .map((project) => ({ id: project.id, label: project.title })),
+                  }
+                : {}),
               supports: {
                 settlement: configLoaded,
                 autoSettleOptOut: supportsAutoSettleOptOut,
@@ -2578,6 +2595,29 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
         );
         if (clicked._tag === "Failure" || clicked.value === null) return;
         if (threadActionRequiresOperate(clicked.value) && !checkThreadOperations([thread])) return;
+        if (clicked.value.startsWith("move-project:")) {
+          const id = clicked.value.slice("move-project:".length);
+          const result = await moveThreadToProject(
+            threadRef,
+            id === "none" ? null : ProjectId.make(id),
+          );
+          if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
+            const error = squashAtomCommandFailure(result);
+            toastManager.add(
+              stackedThreadToast({
+                type: "error",
+                title: "Could not move chat",
+                description: error instanceof Error ? error.message : "An error occurred.",
+              }),
+            );
+          } else if (result._tag === "Success") {
+            toastManager.add({
+              type: "success",
+              title: id === "none" ? "Moved out of project" : "Chat moved to project",
+            });
+          }
+          return;
+        }
         if (clicked.value?.startsWith("snooze:")) {
           const preset =
             clicked.value === "snooze:custom"

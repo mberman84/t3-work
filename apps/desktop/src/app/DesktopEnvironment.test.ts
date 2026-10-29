@@ -68,8 +68,10 @@ describe("DesktopEnvironment", () => {
       );
       const production = yield* makeEnvironment();
 
-      assert.equal(development.stateDir, "/Users/alice/.t3/dev");
-      assert.equal(production.stateDir, "/Users/alice/.t3/userdata");
+      assert.equal(development.stateDir, "/Users/alice/.t3work/dev");
+      assert.equal(production.stateDir, "/Users/alice/.t3work/userdata");
+      const configured = yield* makeEnvironment({}, { T3CODE_HOME: "/custom/t3work" });
+      assert.equal(configured.stateDir, "/custom/t3work/userdata");
     }),
   );
 });

@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vite-plus/test";
-import { DEFAULT_BROWSER_PROFILE_ID, INCOGNITO_BROWSER_PROFILE_ID } from "@t3tools/contracts";
+import {
+  DEFAULT_BROWSER_PROFILE_ID,
+  INCOGNITO_BROWSER_PROFILE_ID,
+  LIVE_CHROME_PROFILE_ID,
+} from "@t3tools/contracts";
 
 const settings = vi.hoisted(() => ({ current: {} as Record<string, unknown> }));
 
@@ -24,9 +28,13 @@ const withDefaultProfile = (browserDefaultProfileId: string) => {
 };
 
 describe("getBrowserDefaults profile resolution", () => {
-  it("refuses incognito as the default", () => {
-    expect(withDefaultProfile(INCOGNITO_BROWSER_PROFILE_ID).profileId).toBe(
-      DEFAULT_BROWSER_PROFILE_ID,
-    );
+  it("keeps a chosen persistent profile", () => {
+    expect(withDefaultProfile("work").profileId).toBe("work");
   });
+  it.each([INCOGNITO_BROWSER_PROFILE_ID, LIVE_CHROME_PROFILE_ID, "missing"])(
+    "uses a persistent browser instead of %s as the default",
+    (profileId) => {
+      expect(withDefaultProfile(profileId).profileId).toBe(DEFAULT_BROWSER_PROFILE_ID);
+    },
+  );
 });

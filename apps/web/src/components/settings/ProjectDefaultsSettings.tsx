@@ -1,3 +1,4 @@
+import { useDeveloperToolsEnabled } from "~/hooks/useDeveloperTools";
 import {
   DEFAULT_SERVER_SETTINGS,
   type ModelSelection,
@@ -48,6 +49,7 @@ function isWorktreeSubmodules(value: string | null): value is WorktreeSubmodules
 }
 
 export function ProjectDefaultsSettings({ category }: { category: ProjectSettingsCategory }) {
+  const developerTools = useDeveloperToolsEnabled();
   const { scope, target, connectedEnvironments } = useSettingsScope();
   const settings = useScopedSettings();
   const updateSettings = useUpdateScopedSettings();
@@ -176,7 +178,7 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
       }
     />
   );
-  const workspaceRow = (
+  const workspaceRow = developerTools ? (
     <SettingsRow
       serverScoped
       settingKeys={["defaultThreadEnvMode"]}
@@ -222,7 +224,7 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
         </Select>
       }
     />
-  );
+  ) : null;
 
   const fallbackRow = !isProjectScope ? (
     <SettingsRow

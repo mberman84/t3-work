@@ -33,7 +33,7 @@ export const ComposerFooterModeControls = memo(function ComposerFooterModeContro
   runtimeModeOptions: ReadonlyArray<RuntimeModeOption>;
   size?: "sm" | "xs";
   hidden?: boolean;
-  /** How the permissions chip shows: hidden while the thread matches the user's default. */
+  /** Whether to show the permission label beside its icon. */
   accessDisplay?: "label" | "icon" | "hidden";
   /** Draw the icon in the label color, not muted (the mode differs from the user's default). */
   emphasized?: boolean;
@@ -93,7 +93,6 @@ export const ComposerFooterModeControls = memo(function ComposerFooterModeContro
     </Tooltip>
   ) : null;
 
-  // The chip opens the same Permissions toggle used in the effort menu.
   const permissionsTooltip = `Permissions: ${runtimeModeOption.label}. ${runtimeModeOption.description}`;
   const permissionsChip = (
     <Menu
@@ -156,7 +155,7 @@ export const ComposerFooterModeControls = memo(function ComposerFooterModeContro
 /**
  * Permission modes as one horizontal toggle, with the shown mode named below.
  * Each segment is a real menu radio item, so arrow keys reach it from the rest of the menu
- * and a pick closes the menu. Lives inside a Menu: the permissions chip, the effort menu,
+ * and a pick closes the menu. Lives inside a Menu: the permissions chip,
  * or the overflow menu.
  */
 export function ComposerPermissionsSection(props: {

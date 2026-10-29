@@ -3,12 +3,13 @@
 // --disable-gpu uses cheaper software compositing while preserving SwiftShader WebGL.
 import {
   BUILT_IN_BROWSER_PROFILES,
-  DEFAULT_BROWSER_PROFILE_ID,
   DEFAULT_BROWSER_RECORDING_FRAME_RATE,
   FILL_PREVIEW_VIEWPORT,
   findBrowserProfile,
   INCOGNITO_BROWSER_PROFILE_ID,
+  LIVE_CHROME_PROFILE_ID,
   resolveBrowserProfiles,
+  resolveDefaultBrowserProfileId,
   type BrowserProfile,
   type PreviewReportProfilesInput,
   PREVIEW_AUTOMATION_SERVER_OPERATIONS,
@@ -450,6 +451,11 @@ const CLIPBOARD_SCRIPT = `(() => {
 const make = Effect.gen(function* () {
   const config = yield* ServerConfig.ServerConfig;
   const host = { platform: yield* HostProcess.Platform, arch: yield* HostProcess.Architecture };
+  const chromeHost = {
+    platform: host.platform,
+    homeDirectory: yield* HostProcess.HomeDirectory,
+    env: yield* HostProcess.Environment,
+  };
   const manager = yield* PreviewManager.PreviewManager;
   const broker = yield* PreviewAutomationBroker.PreviewAutomationBroker;
   const environment = yield* ServerEnvironment.ServerEnvironment;
@@ -471,6 +477,7 @@ const make = Effect.gen(function* () {
   let viewerResizeOrder = 0;
 
   const contexts = new ServerBrowserContexts({
+    chromeHost,
     profilesDir: NodePath.join(config.stateDir, "server-browser", "profiles"),
     executable: () => runPromise(previewBrowser.executable),
     // Playwright's launch error drops Chrome's own output; its sandbox note survives.
@@ -736,9 +743,11 @@ const make = Effect.gen(function* () {
         isolatedContext ? tabKey(snapshot.threadId, snapshot.tabId) : undefined,
       ));
     if (adopted?.page.isClosed()) throw new Error("The popup closed before it opened.");
-    if (!desktop) await prepareContext(context);
+    if (!desktop && snapshot.profileId !== LIVE_CHROME_PROFILE_ID) await prepareContext(context);
     const page = adopted?.page ?? desktop?.page ?? (await context.newPage());
     const cdp = await context.newCDPSession(page);
+    if (snapshot.profileId === LIVE_CHROME_PROFILE_ID)
+      await cdp.send("Emulation.setFocusEmulationEnabled", { enabled: true });
     await installPdfDocumentNavigation(cdp);
     // The desktop's page is already a normal browser. A popup's first request
     // went out before it became a tab; everything after presents as Chrome.
@@ -1320,8 +1329,7 @@ const make = Effect.gen(function* () {
       const profiles = resolveBrowserProfiles(input.profiles);
       reportedProfiles = {
         profiles,
-        defaultProfileId:
-          findBrowserProfile(profiles, input.defaultProfileId)?.id ?? DEFAULT_BROWSER_PROFILE_ID,
+        defaultProfileId: resolveDefaultBrowserProfileId(profiles, input.defaultProfileId),
       };
     });
 
@@ -2078,6 +2086,8 @@ const make = Effect.gen(function* () {
             }
             await applyRendering(tab, event.snapshot);
             const request = event.request;
+            if (request?.clear && tab.profileId === LIVE_CHROME_PROFILE_ID)
+              throw new Error("Manage this profile's cookies and cache in Chrome.");
             if (request?.clear === "cookies") await tab.cdp.send("Network.clearBrowserCookies");
             if (request?.clear === "cache") await tab.cdp.send("Network.clearBrowserCache");
             if (request?.hardReload) await tab.cdp.send("Page.reload", { ignoreCache: true });

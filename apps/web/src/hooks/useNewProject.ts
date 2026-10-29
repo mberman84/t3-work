@@ -74,7 +74,7 @@ export function useNewProject() {
   }): Promise<boolean> => {
     const result = await createNew({
       environmentId: input.environmentId,
-      input: { name: input.name },
+      input: { name: input.name, initializeGit: input.publishTo !== null },
     });
     if (result._tag === "Failure") {
       if (!isAtomCommandInterrupted(result)) {
@@ -93,7 +93,7 @@ export function useNewProject() {
     toastManager.add(
       stackedThreadToast(
         commitError === undefined
-          ? { type: "success", title: `Created ${input.name}`, description: workspaceRoot }
+          ? { type: "success", title: `Created ${input.name}` }
           : {
               type: "warning",
               title: `Created ${input.name} without a first commit`,

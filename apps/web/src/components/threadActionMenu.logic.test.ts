@@ -4,6 +4,7 @@ import { buildThreadActionMenuItems, type ThreadActionMenuState } from "./thread
 
 const baseState: ThreadActionMenuState = {
   canOperate: true,
+  developerToolsEnabled: true,
   branch: null,
   projectFilter: null,
   isPinned: false,
@@ -26,6 +27,21 @@ const baseState: ThreadActionMenuState = {
 };
 
 describe("buildThreadActionMenuItems", () => {
+  it("hides development actions by default and restores them when enabled", () => {
+    const state = { ...baseState, branch: "main", developerToolsEnabled: false };
+    const hidden = buildThreadActionMenuItems(state);
+    expect(hidden.some((item) => item.id === "new-thread-on-branch")).toBe(false);
+    expect(
+      hidden
+        .find((item) => item.id === "copy")
+        ?.children?.some((item) => item.id === "copy-branch"),
+    ).toBe(false);
+    expect(
+      buildThreadActionMenuItems({ ...state, developerToolsEnabled: true }).some(
+        (item) => item.id === "new-thread-on-branch",
+      ),
+    ).toBe(true);
+  });
   it.each([false, true])(
     "disables both lifecycle directions without permission (reversed: %s)",
     (reversed) => {

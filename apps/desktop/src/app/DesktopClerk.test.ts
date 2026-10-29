@@ -49,6 +49,7 @@ const layerDesktopClerk = (
   platform: NodeJS.Platform = "darwin",
   fileSystemLayer: Layer.Layer<FileSystem.FileSystem> = FileSystem.layerNoop({
     exists: () => Effect.succeed(false),
+    makeDirectory: () => Effect.void,
   }),
   shell: ElectronShell.ElectronShell["Service"] = {
     openExternal: () => Effect.succeed(true),
@@ -114,25 +115,25 @@ describe("DesktopClerk", () => {
       name: "packaged macOS",
       isDevelopment: false,
       platform: "darwin" as const,
-      userData: "/tmp/app-data/t3code-v2",
+      userData: "/tmp/t3-state/electron",
     },
     {
       name: "packaged Linux",
       isDevelopment: false,
       platform: "linux" as const,
-      userData: "/tmp/app-data/t3code-v2",
+      userData: "/tmp/t3-state/electron",
     },
     {
       name: "packaged Windows",
       isDevelopment: false,
       platform: "win32" as const,
-      userData: "/tmp/app-data/t3code-v2",
+      userData: "/tmp/t3-state/electron",
     },
     {
       name: "development",
       isDevelopment: true,
       platform: "win32" as const,
-      userData: "/tmp/app-data/t3code-dev",
+      userData: "/tmp/t3-state/electron",
     },
   ])(
     "creates the bridge before startup can yield to the event loop ($name)",
@@ -272,7 +273,7 @@ describe("DesktopClerk", () => {
 
         assert.isTrue(Exit.hasInterrupts(exit));
         assert.deepEqual(events, [
-          "setPath:userData:/tmp/app-data/t3code-v2",
+          "setPath:userData:/tmp/t3-state/electron",
           "requestSingleInstanceLock",
           "quit",
         ]);
@@ -432,6 +433,7 @@ it.effect("hands web and app links to the renderer and leaves other links alone"
     yield* Effect.gen(function* () {
       const clerk = yield* DesktopClerk.DesktopClerk;
       yield* clerk.configure;
+      listeners.get("second-instance")!({}, ["t3", "https://example.com/second-instance"]);
       const open = (url: string) => {
         const event = { preventDefault: vi.fn() };
         listeners.get("open-url")!(event, url);
@@ -447,6 +449,8 @@ it.effect("hands web and app links to the renderer and leaves other links alone"
       assert.strictEqual(open("t3code://somewhere-else"), 0);
       yield* Effect.yieldNow;
       assert.deepStrictEqual(received, [
+        "https://example.com/startup",
+        "https://example.com/second-instance",
         "https://example.com/page",
         "http://localhost:3000/",
         "t3code://new?prompt=hi",
@@ -455,12 +459,11 @@ it.effect("hands web and app links to the renderer and leaves other links alone"
       ]);
     }).pipe(
       Effect.provide(layerDesktopClerk(true, [], "darwin", undefined, undefined, listeners)),
-      Effect.provideService(HostProcess.Arguments, ["t3"]),
+      Effect.provideService(HostProcess.Arguments, ["t3", "https://example.com/startup"]),
       Effect.provideService(ElectronApp.ElectronApp, electronApp),
-      Effect.provideService(
-        ElectronWindow.ElectronWindow,
-        {} as ElectronWindow.ElectronWindow["Service"],
-      ),
+      Effect.provideService(ElectronWindow.ElectronWindow, {
+        currentMainOrFirst: Effect.succeedNone,
+      } as unknown as ElectronWindow.ElectronWindow["Service"]),
       Effect.provideService(
         DesktopWebLinks.DesktopWebLinks,
         DesktopWebLinks.DesktopWebLinks.of({

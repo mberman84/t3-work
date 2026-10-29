@@ -1,5 +1,11 @@
 # Settings and project overrides
 
+Developer tools are off by default. Turn them on in **Settings → General → Developer tools**
+to show Git, branches, worktrees, pull requests, code diffs, project scripts, terminal panels,
+IDE launchers, and development devices. Turning them off hides these controls and their
+shortcuts while keeping your existing projects, files, and settings. Browser access, file
+editing, and the agent's ability to run commands remain available.
+
 On web and desktop, the "Applying settings for …" sentence at the top of Settings pages picks
 the project and environment a change applies to. Pages that only hold device preferences, such as
 Appearance, don't show it. They start at **All projects** and **All environments**

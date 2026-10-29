@@ -12,6 +12,7 @@ import {
   AuthSourceControlWriteScope,
   EnvironmentAuthorizationError,
   EnvironmentId,
+  type ProjectId,
   type ScopedThreadRef,
   ThreadId,
   sessionGrantsScope,
@@ -243,6 +244,13 @@ export function canTurnThreadIntoProject(threadRef: ScopedThreadRef): boolean {
   return project !== null && isScratchProject(project, config.scratchWorkspaceRoot);
 }
 
+export function canMoveThreadToProject(threadRef: ScopedThreadRef): boolean {
+  return (
+    appAtomRegistry.get(environmentServerConfigsAtom).get(threadRef.environmentId)?.environment
+      .capabilities.threadProjectMove === true
+  );
+}
+
 function threadOperationFailure(target: ScopedThreadRef) {
   return readEnvironmentScope(target.environmentId, AuthOrchestrationOperateScope)
     ? null
@@ -295,6 +303,9 @@ export function useThreadActions() {
   });
   const markThreadUnread = useMarkThreadUnread();
   const createProjectFromThread = useAtomCommand(projectEnvironment.createFromThread, {
+    reportFailure: false,
+  });
+  const openScratchProject = useAtomCommand(projectEnvironment.openScratch, {
     reportFailure: false,
   });
   const stopThreadSession = useOrchestrationCommand(threadEnvironment.stopSession);
@@ -943,6 +954,20 @@ export function useThreadActions() {
     reorderActiveThread,
     markThreadUnread,
     setThreadAutoSettle,
+    moveThreadToProject: async (target: ScopedThreadRef, projectId: ProjectId | null) => {
+      if (projectId === null) {
+        const scratch = await openScratchProject({
+          environmentId: target.environmentId,
+          input: {},
+        });
+        if (scratch._tag === "Failure") return scratch;
+        projectId = scratch.value.id;
+      }
+      return createProjectFromThread({
+        environmentId: target.environmentId,
+        input: { threadId: target.threadId, targetProjectId: projectId },
+      });
+    },
     turnThreadIntoProject: (target: ScopedThreadRef) =>
       createProjectFromThread({
         environmentId: target.environmentId,

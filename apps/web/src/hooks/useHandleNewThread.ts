@@ -1,3 +1,4 @@
+import { developerToolsEnabled } from "~/hooks/useDeveloperTools";
 import {
   scopedProjectKey,
   scopeProjectRef,
@@ -176,6 +177,7 @@ export function createNewThreadHandler(router: AnyRouter) {
         destinationDraftId,
       });
     const resolveDefaultEnvMode = async (): Promise<DraftThreadEnvMode> => {
+      if (!developerToolsEnabled()) return "local";
       // Environment queries wait for a connection, so reading the project file on an
       // offline machine would never settle and the draft would never open.
       const consultProjectFile =

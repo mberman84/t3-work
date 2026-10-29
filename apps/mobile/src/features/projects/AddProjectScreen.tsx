@@ -1073,7 +1073,7 @@ export function AddProjectNewScreen(props: { readonly environmentId?: string | s
     setIsSubmitting(true);
     const result = await createNew({
       environmentId: environment.environmentId,
-      input: { name: trimmedName },
+      input: { name: trimmedName, initializeGit: publishes && publishTarget !== null },
     });
     if (AsyncResult.isFailure(result)) {
       submittingRef.current = false;

@@ -302,6 +302,7 @@ export const openSystemSettings = DesktopIpc.makeIpcMethod({
   handler: Effect.fn("desktop.ipc.window.openSystemSettings")(function* (pane) {
     const shell = yield* ElectronShell.ElectronShell;
     const environment = yield* DesktopEnvironment.DesktopEnvironment;
+    if (pane === "default-browser") return yield* shell.openSystemSettings(pane);
     if (environment.platform !== "darwin") return false;
     const owner = Electron.BrowserWindow.getFocusedWindow();
     const opened = yield* shell.openSystemSettings(pane);
@@ -418,7 +419,8 @@ export const checkSystemPermission = DesktopIpc.makeIpcMethod({
   channel: IpcChannels.CHECK_SYSTEM_PERMISSION_CHANNEL,
   payload: SystemSettingsPaneSchema,
   result: Schema.Boolean,
-  handler: Effect.fn("desktop.ipc.window.checkSystemPermission")(function* () {
+  handler: Effect.fn("desktop.ipc.window.checkSystemPermission")(function* (pane) {
+    if (pane === "default-browser") return false;
     const environment = yield* DesktopEnvironment.DesktopEnvironment;
     if (environment.platform !== "darwin") return false;
     const check = yield* safariPermissionCheck;

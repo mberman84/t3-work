@@ -1,3 +1,4 @@
+import { useDeveloperToolsEnabled } from "~/hooks/useDeveloperTools";
 import { ThreadDetailsControl } from "./chat/ThreadDetailsControl";
 import {
   AuthSettingsWriteScope,
@@ -75,7 +76,7 @@ interface ProjectScriptsControlProps {
   onDeleteScript: (scriptId: string) => Promise<ProjectScriptActionResult>;
 }
 
-export default function ProjectScriptsControl({
+function DeveloperProjectScriptsControl({
   displayMode = "toolbar",
   presentation = "toolbar",
   onRequestMenuClose,
@@ -458,4 +459,11 @@ export default function ProjectScriptsControl({
       />
     </>
   );
+}
+
+export default function ProjectScriptsControl(
+  props: Parameters<typeof DeveloperProjectScriptsControl>[0],
+) {
+  const enabled = useDeveloperToolsEnabled();
+  return enabled ? <DeveloperProjectScriptsControl {...props} /> : null;
 }
