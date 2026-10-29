@@ -1,0 +1,69 @@
+:root {
+  color-scheme: light dark;
+  font:
+    13px/1.5 system-ui,
+    sans-serif;
+}
+body {
+  width: 340px;
+  margin: 0;
+  padding: 22px;
+  box-sizing: border-box;
+}
+h1 {
+  font-size: 22px;
+  letter-spacing: -0.5px;
+  margin: 0;
+}
+p {
+  color: light-dark(#586064, #aab2b9);
+}
+label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: 18px;
+}
+input {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 6px;
+  padding: 9px;
+  border: 1px solid light-dark(#cdd2d5, #555);
+  border-radius: 6px;
+  background: light-dark(#fff, #24282b);
+}
+button {
+  cursor: pointer;
+  border: 0;
+  border-radius: 6px;
+  padding: 10px 12px;
+  background: light-dark(#223d36, #bddbce);
+  color: light-dark(#fff, #17251e);
+  font-weight: 600;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.secondary {
+  background: light-dark(#edf0ee, #343b38);
+  color: inherit;
+}
+.actions {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0;
+}
+.hint {
+  font-size: 11px;
+}
+hr {
+  border: 0;
+  border-top: 1px solid light-dark(#ddd, #444);
+  margin: 22px 0;
+}
+#status {
+  min-height: 20px;
+  color: inherit;
+}

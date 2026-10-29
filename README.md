@@ -1,4 +1,27 @@
-# T3 Code
+# T3 Work
+
+A personal fork of T3 Code for everyday work: quick tasks, research, writing, planning, and one-off
+projects. The home screen starts with the outcome you want and brings recent work and your existing
+Chrome tabs together. See [Everyday work](docs/user/work-home.md) for Chrome companion and agent setup.
+
+The fork currently changes the web interface (also used by desktop). The Chrome companion connects
+to the local web app in Chrome; the separate Chrome DevTools MCP setup lets local agents use your
+running Chrome session. A packaged desktop release and native mobile redesign are not included yet.
+
+## Run this fork from source
+
+Use the Node.js version declared in package.json and Vite+ (vp). From this checkout, run:
+
+```text
+vp i
+vp run dev --home-dir .t3 --no-seed
+```
+
+Open the pairing URL printed by the server in Chrome. The isolated .t3 directory keeps this fork's
+runtime data separate from an existing T3 Code installation. Keep the server running when using
+Work home as your new-tab page.
+
+## Upstream T3 Code
 
 T3 Code is an "agent harness control surface". It enables control of the agents on your machine with a best-in-class mobile app ([iOS](https://apps.apple.com/us/app/t3-code-remote-claude-more/id6787819824), [Android](https://play.google.com/store/apps/details?id=com.t3tools.t3code)), [web app](https://app.t3.codes) and [Electron-based desktop app](https://t3.codes).
 
