@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "T3 Work — Chrome companion",
+  "version": "0.1.0",
+  "description": "Keep your Chrome sessions and bring chosen pages into T3 Work.",
+  "permissions": ["tabs", "activeTab", "scripting", "storage"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "action": { "default_popup": "popup.html", "default_title": "T3 Work" },
+  "chrome_url_overrides": { "newtab": "newtab.html" },
+  "externally_connectable": {
+    "matches": [
+      "http://localhost/*",
+      "http://127.0.0.1/*",
+      "https://localhost/*",
+      "https://127.0.0.1/*"
+    ]
+  }
+}

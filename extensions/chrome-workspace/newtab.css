@@ -1,0 +1,35 @@
+:root {
+  color-scheme: light dark;
+  font:
+    16px/1.7 system-ui,
+    sans-serif;
+  background: light-dark(#f5f4f0, #191c1a);
+  color: light-dark(#25332d, #e1e8e3);
+}
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+}
+main {
+  max-width: 620px;
+  padding: 48px;
+}
+h1 {
+  font-size: clamp(32px, 5vw, 54px);
+  letter-spacing: -2px;
+  line-height: 1.2;
+  font-weight: 500;
+}
+p {
+  color: light-dark(#5a685f, #a6b5ab);
+}
+.eyebrow {
+  font-size: 12px;
+  letter-spacing: 3px;
+}
+.hint {
+  margin-top: 36px;
+  font-size: 12px;
+}
